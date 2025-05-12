@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="300" height="300" viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Graduation cap -->
+  <path d="M150 70L50 120L150 170L250 120L150 70Z" fill="#10B0C8"/>
+  
+  <!-- Book pages and tassel -->
+  <path d="M150 180L80 147.5V220C80 220 110 250 150 250C190 250 220 220 220 220V147.5L150 180Z" fill="#10B0C8"/>
+  <path d="M220 147.5V220C220 220 190 250 150 250V180L220 147.5Z" fill="#FF9500"/>
+  
+  <!-- Book spine -->
+  <path d="M150 180V250C150 250 120 220 80 220V147.5L150 180Z" fill="#10B0C8"/>
+  <path d="M150 180V250C150 250 170 230 170 220V147.5" fill="#001A2C"/>
+  
+  <!-- Tassel -->
+  <path d="M220 140V160L235 180V140H220Z" fill="#FF9500"/>
+</svg> 
