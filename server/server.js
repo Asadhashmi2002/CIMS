@@ -44,18 +44,27 @@ app.use('/api/fees', feeRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/stats', statsRoutes);
 
-// For Vercel deployment - handle SPA routing
-if (process.env.NODE_ENV === 'production') {
-  // Serve static files
-  app.use(express.static(path.join(__dirname, '../client/build')));
-  
-  // Handle React routing, return all requests to React app
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
-    }
+// Handle undefined API routes
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ message: `API endpoint not found: ${req.path}` });
+});
+
+// For Vercel, handle all other requests by returning a simple message
+// This helps with debugging deployment issues
+app.get('*', (req, res) => {
+  res.json({
+    message: 'Server is running. Please access via the client or proper API endpoints.',
+    endpoints: [
+      '/api/auth',
+      '/api/teachers',
+      '/api/students',
+      '/api/batches',
+      '/api/fees',
+      '/api/attendance',
+      '/api/stats'
+    ]
   });
-}
+});
 
 // Start server
 app.listen(PORT, () => {
