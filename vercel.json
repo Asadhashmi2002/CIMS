@@ -5,8 +5,9 @@
     { "src": "server/server.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "server/server.js" },
-    { "src": "/(.*)", "dest": "client/build/$1" }
+    { "src": "/api/(.*)", "dest": "/server/server.js" },
+    { "src": "/(.*\\.(js|css|png|jpg|gif|svg|ico))", "dest": "/client/build/$1" },
+    { "src": "/(.*)", "dest": "/client/build/index.html" }
   ],
   "env": {
     "NODE_ENV": "production"
