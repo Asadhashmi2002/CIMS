@@ -6,6 +6,10 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import TeacherLogin from './components/TeacherLogin';
 import TeacherDashboard from './components/TeacherDashboard';
+import About from './pages/About';
+import Services from './pages/Services';
+import Pricing from './pages/Pricing';
+import Contact from './pages/Contact';
 
 function App() {
   // Check if user is authenticated from localStorage
@@ -33,6 +37,10 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<LoginSelector />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/services" element={<Services />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/contact" element={<Contact />} />
         
         {/* Admin Routes */}
         <Route path="/admin/login" element={isAdmin() ? <Navigate to="/dashboard" /> : <Login />} />

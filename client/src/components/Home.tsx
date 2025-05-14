@@ -1,9 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ReactComponent as Logo } from '../assets/images/logo.svg';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import FeatureCard from './FeatureCard';
+import TestimonialCard from './TestimonialCard';
+import SocialIcon from './SocialIcon';
 
 const Home: React.FC = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
   const fadeIn = {
     hidden: { opacity: 0, y: 50 },
     visible: { 
@@ -28,106 +37,331 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center">
-          <div className="flex items-center mb-4 sm:mb-0">
-            <Logo className="h-10 w-10 sm:h-12 sm:w-12 animate-spin-slow" />
-            <h1 className="ml-3 text-xl sm:text-2xl font-bold text-gray-800">Classentry</h1>
+      <header className="bg-white shadow-sm sticky top-0 z-50">
+        {/* Top Bar - Contact Info */}
+        <div className="bg-gray-900 text-white hidden md:block">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+            <div className="flex justify-between text-sm">
+              <div>
+                <span className="inline-flex items-center mr-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  info@class-entry.com
+                </span>
+                <span className="inline-flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  +91 98765 43210
+                </span>
+              </div>
+              <div className="flex space-x-3">
+                <a href="#" className="hover:text-blue-400 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z" />
+                  </svg>
+                </a>
+                <a href="#" className="hover:text-blue-400 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" />
+                  </svg>
+                </a>
+                <a href="#" className="hover:text-blue-400 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                  </svg>
+                </a>
+              </div>
+            </div>
           </div>
-          <motion.div 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="w-full sm:w-auto max-w-xs mx-auto sm:mx-0 hidden sm:block"
-          >
-            <Link 
-              to="/login" 
-              className="relative inline-flex items-center justify-center px-6 py-3 overflow-hidden font-bold text-white rounded-md shadow-md group bg-blue-600 hover:bg-blue-700 transition-all duration-300 w-full text-center"
-            >
-              <span className="absolute right-0 w-8 h-32 -mt-12 transition-all duration-1000 transform translate-x-12 bg-white opacity-10 rotate-12 group-hover:-translate-x-40 ease"></span>
-              <span className="relative">Login</span>
-            </Link>
-          </motion.div>
         </div>
+
+        {/* Main Header */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
+            <div className="flex items-center justify-between">
+              {/* Logo */}
+              <Link to="/" className="flex items-center">
+                <Logo className="h-9 w-9 sm:h-10 sm:w-10" />
+                <div className="ml-2.5 flex flex-col">
+                  <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-gray-900 leading-none">
+                    <span className="text-blue-600">Class</span><span className="text-orange-500">entry</span>
+                  </h1>
+                  <span className="text-xs text-gray-500 tracking-wide">Education Management</span>
+                </div>
+              </Link>
+
+              {/* Desktop Navigation */}
+              <nav className="hidden md:flex space-x-8 items-center">
+                <Link to="/" className="text-gray-800 hover:text-blue-600 font-medium transition-colors">Home</Link>
+                <Link to="/about" className="text-gray-800 hover:text-blue-600 font-medium transition-colors">About</Link>
+                <Link to="/services" className="text-gray-800 hover:text-blue-600 font-medium transition-colors">Services</Link>
+                <Link to="/pricing" className="text-gray-800 hover:text-blue-600 font-medium transition-colors">Pricing</Link>
+                <Link to="/contact" className="text-gray-800 hover:text-blue-600 font-medium transition-colors">Contact</Link>
+                <div>
+                  <Link to="/login" className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-md text-white font-medium shadow-sm hover:shadow-md transition-all">
+                    Login
+                  </Link>
+                </div>
+              </nav>
+
+              {/* Mobile Menu Button */}
+              <div className="flex md:hidden">
+                <div>
+                  <Link 
+                    to="/login" 
+                    className="mr-3 inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm"
+                  >
+                    Login
+                  </Link>
+                </div>
+                <button 
+                  onClick={toggleMenu}
+                  className="p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none"
+                  aria-expanded={isMenuOpen}
+                  aria-controls="mobile-menu"
+                >
+                  {isMenuOpen ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Mobile menu, show/hide based on menu state */}
+        {isMenuOpen && (
+          <div 
+            id="mobile-menu"
+            className="md:hidden bg-white border-t border-gray-100 shadow-lg"
+          >
+            <div className="px-4 pt-2 pb-3 space-y-1 sm:px-6">
+              <Link 
+                to="/" 
+                className="block py-2 px-3 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-blue-600 rounded-md"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Home
+              </Link>
+              <Link 
+                to="/about" 
+                className="block py-2 px-3 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-blue-600 rounded-md"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                About
+              </Link>
+              <Link 
+                to="/services" 
+                className="block py-2 px-3 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-blue-600 rounded-md"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Services
+              </Link>
+              <Link 
+                to="/pricing" 
+                className="block py-2 px-3 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-blue-600 rounded-md"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Pricing
+              </Link>
+              <Link 
+                to="/contact" 
+                className="block py-2 px-3 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-blue-600 rounded-md"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Contact
+              </Link>
+            </div>
+            
+            {/* Mobile contact info */}
+            <div className="pt-2 pb-4 border-t border-gray-100 px-4 sm:px-6">
+              <div className="flex flex-col space-y-2 text-sm text-gray-600">
+                <span className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  info@class-entry.com
+                </span>
+                <span className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  +91 98765 43210
+                </span>
+              </div>
+              
+              <div className="mt-4 flex space-x-4">
+                <a href="#" className="text-gray-500 hover:text-blue-600 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z" />
+                  </svg>
+                </a>
+                <a href="#" className="text-gray-500 hover:text-blue-600 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" />
+                  </svg>
+                </a>
+                <a href="#" className="text-gray-500 hover:text-blue-600 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
       
       {/* Hero Section */}
-      <motion.div 
-        variants={fadeIn}
-        initial="hidden"
-        animate="visible"
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-24 text-center"
-      >
-        <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight">
-          Welcome to the Future of 
-          <span className="block sm:inline bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 mt-2 sm:mt-0 sm:ml-2">
-            Education Management
-          </span>
-        </h2>
-        <p className="mt-6 text-base sm:text-xl text-gray-600 max-w-3xl mx-auto px-4 sm:px-0">
-          A complete solution for managing your coaching institute with attendance tracking, 
-          fee management, and automated notifications.
-        </p>
-      </motion.div>
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
+          <div className="md:flex items-center">
+            <div className="md:w-1/2 text-center md:text-left mb-8 md:mb-0">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 leading-tight">
+                Welcome to the Future of 
+                <span className="block sm:inline text-blue-600 mt-2 sm:mt-0 sm:ml-2">
+                  Education Management
+                </span>
+              </h2>
+              <p className="mt-4 text-lg text-gray-600 max-w-2xl">
+                A complete solution for managing your coaching institute with attendance tracking, 
+                fee management, and automated notifications.
+              </p>
+              <div className="mt-8">
+                <Link 
+                  to="/login" 
+                  className="inline-flex items-center px-6 py-3 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-md hover:shadow-lg transition-all"
+                >
+                  Get Started
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+            <div className="md:w-1/2">
+              <img 
+                src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80" 
+                alt="Education Management" 
+                className="rounded-lg shadow-xl"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
       
-      {/* Feature Cards */}
-      <motion.div 
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
-      >
-        <FeatureCard 
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 sm:h-14 sm:w-14 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-          }
-          title="Attendance Tracking" 
-          description="Track student attendance with ease and send automatic WhatsApp notifications to parents for absentees."
-          hoverColor="hover:bg-blue-50"
-          shadowColor="shadow-blue-100"
-        />
-        <FeatureCard 
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 sm:h-14 sm:w-14 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
-          title="Fee Management" 
-          description="Manage student fees, generate receipts, and send payment reminders automatically."
-          hoverColor="hover:bg-green-50"
-          shadowColor="shadow-green-100"
-        />
-        <FeatureCard 
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 sm:h-14 sm:w-14 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-          }
-          title="WhatsApp Integration" 
-          description="Send automated WhatsApp notifications for attendance, fees, and important announcements."
-          hoverColor="hover:bg-purple-50"
-          shadowColor="shadow-purple-100"
-        />
-      </motion.div>
-      
-      {/* Testimonial Section */}
-      <div className="bg-white py-10 sm:py-16">
+      {/* Stats Section */}
+      <div className="py-12 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-8 sm:mb-12"
-          >
-            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">Trusted by Leading Institutes</h3>
-            <p className="mt-3 sm:mt-4 text-base sm:text-lg text-gray-600">
+          <div className="text-center mb-10">
+            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">Trusted by Educational Institutions</h3>
+            <p className="mt-3 text-gray-600 max-w-2xl mx-auto">
               Our system helps educational institutions improve efficiency and parent satisfaction
             </p>
-          </motion.div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard 
+              title="Students Managed" 
+              value="10,000+" 
+              icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
+              </svg>} 
+            />
+            <StatCard 
+              title="Fees Collected" 
+              value="₹2.5 Cr+" 
+              icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>} 
+            />
+            <StatCard 
+              title="Schools & Institutes" 
+              value="100+" 
+              icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>} 
+            />
+            <StatCard 
+              title="Attendance Tracked" 
+              value="1M+" 
+              icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>} 
+            />
+          </div>
+        </div>
+      </div>
+      
+      {/* Feature Cards */}
+      <div className="bg-white py-12 sm:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">Key Features</h3>
+            <p className="mt-3 text-gray-600 max-w-2xl mx-auto">
+              Discover how our system can transform your educational institution
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            <FeatureCard 
+              icon={
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 sm:h-14 sm:w-14 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+              }
+              title="Attendance Tracking" 
+              description="Track student attendance with ease and send automatic WhatsApp notifications to parents for absentees."
+              hoverColor="hover:bg-blue-50"
+              shadowColor="shadow-blue-100"
+            />
+            <FeatureCard 
+              icon={
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 sm:h-14 sm:w-14 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              }
+              title="Fee Management" 
+              description="Manage student fees, generate receipts, and send payment reminders automatically."
+              hoverColor="hover:bg-green-50"
+              shadowColor="shadow-green-100"
+            />
+            <FeatureCard 
+              icon={
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 sm:h-14 sm:w-14 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              }
+              title="WhatsApp Integration" 
+              description="Send automated WhatsApp notifications for attendance, fees, and important announcements."
+              hoverColor="hover:bg-purple-50"
+              shadowColor="shadow-purple-100"
+            />
+          </div>
+        </div>
+      </div>
+      
+      {/* Testimonial Section */}
+      <div className="bg-gray-50 py-10 sm:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8 sm:mb-12">
+            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">What Our Clients Say</h3>
+            <p className="mt-3 sm:mt-4 text-base sm:text-lg text-gray-600">
+              Testimonials from educational institutions using our system
+            </p>
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             <TestimonialCard 
@@ -159,29 +393,16 @@ const Home: React.FC = () => {
       </div>
       
       {/* CTA Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-10 sm:py-16">
+      <div className="bg-blue-600 text-white py-12 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
+          <div className="text-center mb-8 sm:mb-12">
             <h3 className="text-2xl sm:text-3xl font-bold">Ready to transform your institute?</h3>
             <p className="mt-3 sm:mt-4 text-base sm:text-xl">
               Get started today and see the difference our system can make.
             </p>
-          </motion.div>
+          </div>
           
-          <motion.div 
-            initial={{ scale: 0.8, opacity: 0 }}
-            whileInView={{ scale: 1, opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="mt-6 sm:mt-8 max-w-xs mx-auto"
-          >
+          <div className="mt-6 sm:mt-8 max-w-xs mx-auto">
             <Link 
               to="/login" 
               className="inline-flex items-center px-6 py-3 sm:px-8 sm:py-4 text-base sm:text-lg font-medium text-blue-600 bg-white rounded-md shadow-lg hover:bg-gray-50 transition-all duration-200 w-full sm:w-auto justify-center"
@@ -191,23 +412,30 @@ const Home: React.FC = () => {
                 <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
             </Link>
-          </motion.div>
+          </div>
         </div>
       </div>
       
       {/* Footer */}
-      <footer className="bg-gray-800 text-white py-8 sm:py-12">
+      <footer className="bg-gray-900 text-white py-8 sm:py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
             <div>
-              <h4 className="text-lg font-bold mb-4">About Us</h4>
-              <p className="text-gray-300 text-sm sm:text-base">
+              <div className="flex items-center mb-4">
+                <Logo className="h-8 w-8" />
+                <div className="ml-2">
+                  <h1 className="text-lg font-semibold">
+                    <span className="text-blue-400">Class</span><span className="text-orange-400">entry</span>
+                  </h1>
+                </div>
+              </div>
+              <p className="text-gray-400 text-sm">
                 We provide cutting-edge management solutions for educational institutions to streamline operations.
               </p>
             </div>
             <div className="hidden sm:block">
               <h4 className="text-lg font-bold mb-4">Features</h4>
-              <ul className="space-y-2 text-gray-300 text-sm sm:text-base">
+              <ul className="space-y-2 text-gray-400 text-sm">
                 <li>Attendance Management</li>
                 <li>Fee Collection</li>
                 <li>WhatsApp Notifications</li>
@@ -216,8 +444,8 @@ const Home: React.FC = () => {
             </div>
             <div>
               <h4 className="text-lg font-bold mb-4">Contact Us</h4>
-              <ul className="space-y-2 text-gray-300 text-sm sm:text-base">
-                <li>info@classentry.com</li>
+              <ul className="space-y-2 text-gray-400 text-sm">
+                <li>info@class-entry.com</li>
                 <li>+91 98765 43210</li>
                 <li className="hidden sm:block">123 Education Lane, Bangalore</li>
               </ul>
@@ -232,8 +460,8 @@ const Home: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="mt-6 pt-6 sm:mt-8 sm:pt-8 border-t border-gray-700 text-center text-gray-300 text-sm sm:text-base">
-            <p>© 2023 Classentry Management System. All rights reserved.</p>
+          <div className="mt-6 pt-6 sm:mt-8 sm:pt-8 border-t border-gray-800 text-center text-gray-400 text-sm">
+            <p>© 2023 <span className="text-blue-400">Class</span><span className="text-orange-400">entry</span> Management System. All rights reserved.</p>
           </div>
         </div>
       </footer>
@@ -241,117 +469,26 @@ const Home: React.FC = () => {
   );
 };
 
-interface FeatureCardProps {
-  icon: React.ReactNode;
+// StatCard component for the stats section
+interface StatCardProps {
   title: string;
-  description: string;
-  hoverColor: string;
-  shadowColor: string;
+  value: string;
+  icon: React.ReactNode;
 }
 
-const FeatureCard: React.FC<FeatureCardProps> = ({ icon, title, description, hoverColor, shadowColor }) => {
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => {
   return (
-    <motion.div 
-      variants={{
-        hidden: { opacity: 0, y: 20 },
-        visible: { 
-          opacity: 1, 
-          y: 0,
-          transition: {
-            duration: 0.6,
-          }
-        }
-      }}
-      whileHover={{ y: -10 }}
-      className={`bg-white p-6 sm:p-8 rounded-xl shadow-xl ${shadowColor} ${hoverColor} transition-all duration-300 h-full`}
-    >
-      <div className="flex justify-center mb-4 sm:mb-6">
-        {icon}
+    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow">
+      <div className="flex items-center">
+        <div className="mr-4">
+          {icon}
+        </div>
+        <div>
+          <p className="text-sm font-medium text-gray-600">{title}</p>
+          <h3 className="text-2xl font-bold text-gray-900">{value}</h3>
+        </div>
       </div>
-      <h3 className="text-lg sm:text-xl font-bold mb-2 sm:mb-3 text-center">{title}</h3>
-      <p className="text-gray-600 text-sm sm:text-base text-center">{description}</p>
-    </motion.div>
-  );
-};
-
-interface TestimonialCardProps {
-  quote: string;
-  author: string;
-  role: string;
-  className?: string;
-}
-
-const TestimonialCard: React.FC<TestimonialCardProps> = ({ quote, author, role, className = "" }) => {
-  return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.9 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
-      whileHover={{ y: -5 }}
-      className={`bg-gray-50 p-5 sm:p-6 rounded-lg shadow ${className}`}
-    >
-      <svg className="h-8 w-8 sm:h-10 sm:w-10 text-blue-500 mb-3 sm:mb-4" fill="currentColor" viewBox="0 0 32 32">
-        <path d="M9.352 4C4.456 7.456 1 13.12 1 19.36c0 5.088 3.072 8.064 6.624 8.064 3.36 0 5.856-2.688 5.856-5.856 0-3.168-2.208-5.472-5.088-5.472-.576 0-1.344.096-1.536.192.48-3.264 3.552-7.104 6.624-9.024L9.352 4zm16.512 0c-4.8 3.456-8.256 9.12-8.256 15.36 0 5.088 3.072 8.064 6.624 8.064 3.264 0 5.856-2.688 5.856-5.856 0-3.168-2.304-5.472-5.184-5.472-.576 0-1.248.096-1.44.192.48-3.264 3.456-7.104 6.528-9.024L25.864 4z" />
-      </svg>
-      <p className="text-gray-700 mb-3 sm:mb-4 text-sm sm:text-base">{quote}</p>
-      <div>
-        <p className="font-semibold text-gray-900">{author}</p>
-        <p className="text-gray-600 text-xs sm:text-sm">{role}</p>
-      </div>
-    </motion.div>
-  );
-};
-
-interface SocialIconProps {
-  name: 'facebook' | 'twitter' | 'instagram' | 'linkedin';
-}
-
-const SocialIcon: React.FC<SocialIconProps> = ({ name }) => {
-  let path;
-  
-  switch (name) {
-    case 'facebook':
-      path = (
-        <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" />
-      );
-      break;
-    case 'twitter':
-      path = (
-        <path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z" />
-      );
-      break;
-    case 'instagram':
-      path = (
-        <path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37zm1.5-4.87h.01M7.5 4h9a3.5 3.5 0 013.5 3.5v9a3.5 3.5 0 01-3.5 3.5h-9A3.5 3.5 0 014 16.5v-9A3.5 3.5 0 017.5 4zm9 0h.01" />
-      );
-      break;
-    case 'linkedin':
-      path = (
-        <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z M4 6a2 2 0 100-4 2 2 0 000 4z" />
-      );
-      break;
-  }
-  
-  return (
-    <motion.a 
-      href="#" 
-      whileHover={{ scale: 1.2 }}
-      className="text-gray-300 hover:text-white transition-colors"
-    >
-      <svg
-        stroke="currentColor"
-        fill="none"
-        strokeWidth="2"
-        viewBox="0 0 24 24"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-5 w-5 sm:h-6 sm:w-6"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        {path}
-      </svg>
-    </motion.a>
+    </div>
   );
 };
 

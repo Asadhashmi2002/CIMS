@@ -156,8 +156,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 // Get current user profile
 export const getCurrentUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    // @ts-ignore - userId is added by auth middleware
-    const userId = req.userId;
+    // User is added by auth middleware
+    const userId = req.user._id;
     
     // Get user
     const user = await User.findById(userId).select('-password');
@@ -170,17 +170,10 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
     let profileData: any = {};
     
     if (user.role === 'teacher') {
-      profileData = await Teacher.findOne({ userId });
-    } else if (user.role === 'parent') {
-      const parentData = await Parent.findOne({ userId });
-      if (parentData) {
-        // Get students associated with this parent
-        const students = await Student.find({ parentId: parentData._id });
-        profileData = {
-          ...parentData.toObject(),
-          students: students || [],
-        };
-      }
+      profileData = await Teacher.findOne({ user: userId });
+    } else if (user.role === 'student') {
+      // For future implementation
+      profileData = {};
     }
 
     // Return user data

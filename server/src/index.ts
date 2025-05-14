@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import authRoutes from './routes/auth';
 import attendanceRoutes from './routes/attendance';
 import feeRoutes from './routes/fee';
+import teacherRoutes from './routes/teacher';
 
 // Load environment variables
 dotenv.config();
@@ -36,6 +37,7 @@ mongoose
 app.use('/api/auth', authRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/fees', feeRoutes);
+app.use('/api/teachers', teacherRoutes);
 
 // Root route
 app.get('/', (req, res) => {

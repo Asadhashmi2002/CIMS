@@ -1,48 +1,45 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
+import { IUser } from './User';
 
 export interface ITeacher extends Document {
-  userId: mongoose.Types.ObjectId;
-  qualification: string;
-  specialization: string;
-  experience: number;
-  batchIds: mongoose.Types.ObjectId[];
+  name: string;
+  phone: string;
+  subject: string;
   joiningDate: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  status: 'active' | 'inactive';
+  user: IUser['_id'] | IUser;
 }
 
-const TeacherSchema = new Schema<ITeacher>(
-  {
-    userId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    qualification: {
-      type: String,
-      required: true,
-    },
-    specialization: {
-      type: String,
-      required: true,
-    },
-    experience: {
-      type: Number,
-      default: 0,
-    },
-    batchIds: [{
-      type: Schema.Types.ObjectId,
-      ref: 'Batch',
-    }],
-    joiningDate: {
-      type: Date,
-      required: true,
-      default: Date.now,
-    },
+const TeacherSchema: Schema = new Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true
   },
-  {
-    timestamps: true,
+  phone: {
+    type: String,
+    trim: true
+  },
+  subject: {
+    type: String,
+    trim: true
+  },
+  joiningDate: {
+    type: Date,
+    default: Date.now
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive'],
+    default: 'active'
+  },
+  user: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   }
-);
+}, {
+  timestamps: true
+});
 
 export default mongoose.model<ITeacher>('Teacher', TeacherSchema); 

@@ -1,167 +1,114 @@
 # Coaching Institute Management System
 
-A comprehensive web application for coaching institutes to manage students, attendance, and fees with automated WhatsApp notifications and email reports.
+A full-stack application for managing a coaching institute with features for admin and teacher roles, student management, and course/batch organization.
 
 ## Features
 
-- **User Management**:
-  - Three user roles: Admin, Teacher, and Parent
-  - Authentication with JWT
-  - Role-based access control
+- User authentication with role-based access control
+- Teacher management (CRUD operations)
+- Student management
+- Batch/class organization
+- Attendance tracking
+- Fee management
+- Reporting
 
-- **Student Management**:
-  - Register students through parent accounts
-  - Track student information, grades, and enrollment in batches
+## Tech Stack
 
-- **Attendance Tracking**:
-  - Mark attendance for each class session
-  - Automatic WhatsApp notifications to parents for absent students
-  - Monthly attendance reports via email
+- **Frontend**: React, TypeScript, TailwindCSS
+- **Backend**: Node.js, Express, TypeScript
+- **Database**: MongoDB
+- **Authentication**: JWT
 
-- **Fee Management**:
-  - Create and track fee entries
-  - Process payments and generate receipts
-  - Email fee receipts to parents
-
-- **Batch/Class Management**:
-  - Create and manage different batches/classes
-  - Assign teachers to batches
-  - Schedule classes with timing information
-
-## Technology Stack
-
-### Frontend
-- React.js with TypeScript
-- Tailwind CSS for UI
-- React Router for navigation
-- Axios for API communication
-
-### Backend
-- Node.js with Express.js
-- MongoDB with Mongoose ODM
-- JWT for authentication
-- TypeScript for type safety
-
-### Third-party Integrations
-- Twilio API for WhatsApp notifications
-- Nodemailer for email reports
-
-## Project Structure
-
-```
-coaching-institute-app/
-├── client/                 # Frontend React application
-│   ├── public/             # Static files
-│   └── src/                # React source code
-│       ├── components/     # Reusable UI components
-│       ├── context/        # React context for state management
-│       ├── pages/          # Page components
-│       ├── services/       # API service functions
-│       └── utils/          # Utility functions
-│
-└── server/                 # Backend Node.js application
-    ├── src/                # Server source code
-    │   ├── config/         # Configuration files
-    │   ├── controllers/    # Request handlers
-    │   ├── middleware/     # Express middleware
-    │   ├── models/         # Mongoose models
-    │   ├── routes/         # API route definitions
-    │   ├── services/       # Business logic
-    │   └── utils/          # Utility functions
-    └── dist/               # Compiled TypeScript
-```
-
-## Getting Started
+## Installation
 
 ### Prerequisites
-- Node.js (v14+)
-- MongoDB
-- Twilio account (for WhatsApp notifications)
-- SMTP email provider (for email reports)
 
-### Installation
+- Node.js (v14+ recommended)
+- MongoDB (local or Atlas)
 
-1. Clone the repository
-   ```
-   git clone https://github.com/yourusername/coaching-institute-app.git
-   cd coaching-institute-app
-   ```
+### Setup
 
-2. Install server dependencies
-   ```
-   cd server
-   npm install
-   ```
+1. Clone the repository:
+```
+git clone https://github.com/yourusername/coaching-institute-app.git
+cd coaching-institute-app
+```
 
-3. Create a `.env` file in the server directory with the following variables:
-   ```
-   PORT=5000
-   MONGODB_URI=mongodb://localhost:27017/coaching-institute
-   JWT_SECRET=your_jwt_secret_key_here
-   TWILIO_ACCOUNT_SID=your_twilio_sid
-   TWILIO_AUTH_TOKEN=your_twilio_auth_token
-   TWILIO_PHONE_NUMBER=your_twilio_phone_number
-   EMAIL_USER=your_email@example.com
-   EMAIL_PASS=your_email_password
-   EMAIL_SERVICE=gmail
-   ```
+2. Install dependencies for both client and server:
+```
+# Install server dependencies
+cd server
+npm install
 
-4. Install client dependencies
-   ```
-   cd ../client
-   npm install
-   ```
+# Install client dependencies
+cd ../client
+npm install
+```
 
-5. Create a `.env` file in the client directory:
-   ```
-   REACT_APP_API_URL=http://localhost:5000/api
-   ```
+3. Create a `.env` file in the server directory:
+```
+# In /server directory
+MONGO_URI=mongodb://localhost:27017/coaching-institute
+JWT_SECRET=your_jwt_secret_key
+PORT=5000
+```
 
-### Running the Application
+4. Set up the database with initial data:
+```
+# In /server directory
+npm run seed
+```
 
-1. Start the server (development mode)
-   ```
-   cd server
-   npm run dev
-   ```
+## Running the Application
 
-2. Start the client
-   ```
-   cd client
-   npm start
-   ```
+### Development Mode
 
-The application will be available at http://localhost:3000.
+1. Start the server:
+```
+# In /server directory
+npm run dev
+```
 
-## API Endpoints
+2. Start the client:
+```
+# In /client directory
+npm start
+```
 
-### Authentication
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login user
-- `GET /api/auth/me` - Get current user profile
-- `POST /api/auth/change-password` - Change password
+The client will be available at http://localhost:3000, and the server will run on http://localhost:5000.
 
-### Attendance
-- `POST /api/attendance/mark` - Mark attendance
-- `GET /api/attendance/batch` - Get attendance by batch and date
-- `GET /api/attendance/student` - Get student attendance
-- `GET /api/attendance/monthly-report` - Get monthly attendance report
+### Production Build
 
-### Fees
-- `POST /api/fees` - Create fee entry
-- `POST /api/fees/payment` - Record fee payment
-- `GET /api/fees/:id` - Get fee details
-- `GET /api/fees/student/:studentId` - Get student fees
-- `GET /api/fees/receipt/:feeId` - Generate fee receipt
-- `GET /api/fees/status/pending` - Get pending fees
-- `GET /api/fees/status/overdue` - Get overdue fees
+1. Build the client:
+```
+# In /client directory
+npm run build
+```
 
-## Deployment
+2. Build the server:
+```
+# In /server directory
+npm run build
+```
 
-The application can be deployed using:
-- Frontend: Vercel, Netlify, or AWS Amplify
-- Backend: Render, Railway, Heroku, or AWS EC2
+3. Start the production server:
+```
+# In /server directory
+npm start
+```
+
+## Default Login Credentials
+
+After running the seed script, you can use these credentials to log in:
+
+- **Admin**:
+  - Email: admin@example.com
+  - Password: admin123
+
+- **Teacher**:
+  - Email: teacher@example.com
+  - Password: teacher123
 
 ## License
 
-This project is licensed under the MIT License. 
+MIT 

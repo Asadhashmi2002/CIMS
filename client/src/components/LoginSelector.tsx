@@ -33,8 +33,10 @@ const LoginSelector: React.FC = () => {
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center">
           <Link to="/" className="flex items-center">
-            <Logo className="h-10 w-10 sm:h-12 sm:w-12 animate-spin-slow" />
-            <h1 className="ml-3 text-xl sm:text-2xl font-bold text-gray-800">Classentry</h1>
+            <Logo className="h-10 w-10 sm:h-12 sm:w-12" />
+            <h1 className="ml-3 text-xl sm:text-2xl font-semibold tracking-tight text-gray-900">
+              <span className="text-blue-600">Class</span><span className="text-orange-500">entry</span>
+            </h1>
           </Link>
         </div>
       </header>

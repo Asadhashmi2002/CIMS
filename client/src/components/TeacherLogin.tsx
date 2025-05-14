@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ReactComponent as Logo } from '../assets/images/logo.svg';
 import { motion } from 'framer-motion';
+import { authAPI } from '../services/api';
 
 const TeacherLogin: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -27,24 +28,31 @@ const TeacherLogin: React.FC = () => {
     setIsLoading(true);
     setError('');
     
+    // Add more detailed logging
+    console.log('Attempting teacher login with:', { email });
+    
     try {
-      // In a real app, this would be an API call to your backend
-      console.log('Teacher login attempt with:', { email, password });
+      // Make API call to authenticate teacher using teacher-specific endpoint
+      const response = await authAPI.teacherLogin(email, password);
+      console.log('Login response:', response.data);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Store user data and token
+      localStorage.setItem('user', JSON.stringify({
+        ...response.data.user,
+        token: response.data.token
+      }));
       
-      // For demo purposes, let's hardcode teacher credentials
-      if (email === 'teacher@example.com' && password === 'teacher123') {
-        localStorage.setItem('user', JSON.stringify({ role: 'teacher', email }));
-        window.location.href = '/teacher/dashboard';
-      } else {
-        setError('Invalid email or password');
-      }
-    } catch (err) {
-      setError('Failed to login. Please try again.');
-      console.error(err);
-    } finally {
+      // Redirect to teacher dashboard
+      window.location.href = '/teacher/dashboard';
+    } catch (err: any) {
+      console.error('Login error details:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data,
+        stack: err.stack
+      });
+      
+      setError(err.response?.data?.message || 'Failed to login. Please try again.');
       setIsLoading(false);
     }
   };
@@ -59,8 +67,10 @@ const TeacherLogin: React.FC = () => {
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center">
           <Link to="/" className="flex items-center">
-            <Logo className="h-10 w-10 sm:h-12 sm:w-12 animate-spin-slow" />
-            <h1 className="ml-3 text-xl sm:text-2xl font-bold text-gray-800">Classentry</h1>
+            <Logo className="h-10 w-10 sm:h-12 sm:w-12" />
+            <h1 className="ml-3 text-xl sm:text-2xl font-semibold tracking-tight text-gray-900">
+              <span className="text-blue-600">Class</span><span className="text-orange-500">entry</span>
+            </h1>
           </Link>
         </div>
       </header>
@@ -149,16 +159,18 @@ const TeacherLogin: React.FC = () => {
                 >
                   <span className="absolute right-0 w-8 h-32 -mt-12 transition-all duration-1000 transform translate-x-12 bg-white opacity-10 rotate-12 group-hover:-translate-x-40 ease"></span>
                   <span className="relative">
-                    {isLoading ? 'Logging in...' : 'Login'}
+                    {isLoading ? (
+                      <div className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Logging in...
+                      </div>
+                    ) : 'Login'}
                   </span>
                 </button>
               </motion.div>
-              
-              <div className="mt-6 text-center text-sm">
-                <p className="text-gray-600">
-                  Use <span className="font-bold">teacher@example.com</span> and password <span className="font-bold">teacher123</span> to login as teacher
-                </p>
-              </div>
             </form>
             
             <div className="mt-8 text-center">

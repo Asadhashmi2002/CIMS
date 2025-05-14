@@ -1,36 +1,34 @@
 import express from 'express';
-import {
-  createFeeEntry,
-  recordFeePayment,
-  getFeeById,
-  getStudentFees,
-  generateFeeReceipt,
-  getPendingFees,
-  getOverdueFees
-} from '../controllers/fee';
-import { auth, authorize } from '../middleware/auth';
 
 const router = express.Router();
 
-// Create fee entry (admin only)
-router.post('/', auth, authorize(['admin']), createFeeEntry);
+// Simple route handlers
+router.post('/', (req, res) => {
+  res.status(501).json({ message: 'Create fee - Not implemented yet' });
+});
 
-// Record fee payment
-router.post('/payment', auth, authorize(['admin']), recordFeePayment);
+router.post('/payment', (req, res) => {
+  res.status(501).json({ message: 'Record payment - Not implemented yet' });
+});
 
-// Get fee by ID
-router.get('/:id', auth, getFeeById);
+router.get('/:id', (req, res) => {
+  res.status(501).json({ message: 'Get fee by ID - Not implemented yet' });
+});
 
-// Get student fees
-router.get('/student/:studentId', auth, getStudentFees);
+router.get('/student/:studentId', (req, res) => {
+  res.status(501).json({ message: 'Get student fees - Not implemented yet' });
+});
 
-// Generate fee receipt
-router.get('/receipt/:feeId', auth, generateFeeReceipt);
+router.get('/receipt/:feeId', (req, res) => {
+  res.status(501).json({ message: 'Generate receipt - Not implemented yet' });
+});
 
-// Get pending fees
-router.get('/status/pending', auth, authorize(['admin', 'teacher']), getPendingFees);
+router.get('/status/pending', (req, res) => {
+  res.status(501).json({ message: 'Get pending fees - Not implemented yet' });
+});
 
-// Get overdue fees
-router.get('/status/overdue', auth, authorize(['admin', 'teacher']), getOverdueFees);
+router.get('/status/overdue', (req, res) => {
+  res.status(501).json({ message: 'Get overdue fees - Not implemented yet' });
+});
 
 export default router; 
