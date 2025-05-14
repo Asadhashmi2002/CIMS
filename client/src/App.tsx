@@ -10,6 +10,8 @@ import About from './pages/About';
 import Services from './pages/Services';
 import Pricing from './pages/Pricing';
 import Contact from './pages/Contact';
+import CustomCursor from './components/CustomCursor';
+import BatchCardExample from './components/BatchCardExample';
 
 function App() {
   // Check if user is authenticated from localStorage
@@ -33,6 +35,7 @@ function App() {
 
   return (
     <Router>
+      <CustomCursor />
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
@@ -49,6 +52,9 @@ function App() {
         {/* Teacher Routes */}
         <Route path="/teacher/login" element={isTeacher() ? <Navigate to="/teacher/dashboard" /> : <TeacherLogin />} />
         <Route path="/teacher/dashboard" element={isTeacher() ? <TeacherDashboard /> : <Navigate to="/teacher/login" />} />
+        
+        {/* Batch Management Demo */}
+        <Route path="/batches" element={<BatchCardExample />} />
       </Routes>
     </Router>
   );

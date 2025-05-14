@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ReactComponent as Logo } from '../assets/images/logo.svg';
+import '../styles/login-animations.css';
+
+declare global {
+  interface Window {
+    AniJS: any;
+  }
+}
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -8,6 +15,73 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [animationLoaded, setAnimationLoaded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Check for mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
+
+  // Add scroll reveal
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollElements = document.querySelectorAll('.reveal-on-scroll');
+      
+      scrollElements.forEach(element => {
+        const elementPosition = element.getBoundingClientRect().top;
+        const windowHeight = window.innerHeight;
+        
+        if (elementPosition < windowHeight - 100) {
+          element.classList.add('revealed');
+        }
+      });
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    // Trigger once on load
+    setTimeout(handleScroll, 300);
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Dynamically load AniJS from CDN
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/anijs/0.9.3/anijs-min.js';
+    script.async = true;
+    script.onload = () => {
+      // Initialize AniJS
+      if (window.AniJS) {
+        window.AniJS.run();
+        setAnimationLoaded(true);
+      }
+    };
+    document.body.appendChild(script);
+
+    // Add smooth scrolling
+    document.documentElement.style.scrollBehavior = 'smooth';
+
+    // Cleanup
+    return () => {
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+      document.documentElement.style.scrollBehavior = '';
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,13 +135,13 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 overflow-x-hidden">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center">
+      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center">
           <Link to="/" className="flex items-center">
-            <Logo className="h-9 w-9 sm:h-10 sm:w-10" />
-            <div className="ml-2.5 flex flex-col">
+            <Logo className="h-8 w-8 sm:h-10 sm:w-10" />
+            <div className="ml-2 sm:ml-2.5 flex flex-col">
               <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-gray-900 leading-none">
                 <span className="text-blue-600">Class</span><span className="text-orange-500">entry</span>
               </h1>
@@ -77,32 +151,44 @@ const Login: React.FC = () => {
         </div>
       </header>
       
-      <div className="flex items-center justify-center pt-10 pb-16 px-4 sm:px-6">
+      <div className="flex items-center justify-center pt-6 sm:pt-10 pb-12 sm:pb-16 px-4 sm:px-6">
         <div className="max-w-md w-full">
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
-            <div className="bg-blue-600 p-6 text-center">
-              <h2 className="text-2xl font-bold text-white">Login</h2>
-              <p className="mt-1 text-blue-100">Access your dashboard</p>
+          <div 
+            className="login-card bg-white rounded-lg sm:rounded-lg shadow-lg overflow-hidden border border-gray-200 reveal-on-scroll"
+            data-anijs={animationLoaded ? "if: load, on: window, do: pulse animated, after: $removeClass animated" : ""}
+          >
+            <div 
+              className="login-header bg-blue-600 p-5 sm:p-6 text-center"
+              data-anijs={animationLoaded ? "if: load, on: window, do: fadeInDown animated" : ""}
+            >
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Login</h2>
+              <p className="mt-1 text-sm sm:text-base text-blue-100">Access your dashboard</p>
             </div>
             
-            <div className="p-6 sm:p-8">
+            <div 
+              className="login-body p-5 sm:p-8"
+              data-anijs={animationLoaded ? "if: load, on: window, do: fadeIn animated, after: removeAnim" : ""}
+            >
               {error && (
                 <div 
-                  className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded"
+                  className="mb-5 sm:mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shake-animation"
                 >
                   {error}
                 </div>
               )}
               
-              <form onSubmit={handleSubmit}>
-                <div className="mb-6">
+              <form onSubmit={handleSubmit} ref={formRef}>
+                <div 
+                  className="mb-5 sm:mb-6 form-group"
+                  data-anijs={animationLoaded ? "if: load, on: window, do: fadeInLeft animated, after: removeAnim" : ""}
+                >
                   <label htmlFor="email" className="block text-gray-700 text-sm font-bold mb-2">
                     Email Address
                   </label>
                   <input
                     id="email"
                     type="email"
-                    className="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="input-field shadow appearance-none border rounded-lg w-full py-2.5 sm:py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="your@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -110,7 +196,10 @@ const Login: React.FC = () => {
                   />
                 </div>
                 
-                <div className="mb-6">
+                <div 
+                  className="mb-5 sm:mb-6 form-group"
+                  data-anijs={animationLoaded ? "if: load, on: window, do: fadeInRight animated, after: removeAnim" : ""}
+                >
                   <label htmlFor="password" className="block text-gray-700 text-sm font-bold mb-2">
                     Password
                   </label>
@@ -118,7 +207,7 @@ const Login: React.FC = () => {
                     <input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      className="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                      className="input-field shadow appearance-none border rounded-lg w-full py-2.5 sm:py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -144,15 +233,17 @@ const Login: React.FC = () => {
                   </div>
                 </div>
                 
-                <div>
+                <div
+                  data-anijs={animationLoaded ? "if: load, on: window, do: fadeInUp animated, after: removeAnim" : ""}
+                >
                   <button
                     type="submit"
-                    className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 shadow-sm transition-colors ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className="login-button w-full bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm sm:text-base py-2.5 sm:py-3 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 shadow-sm transition-all"
                     disabled={isLoading}
                   >
                     {isLoading ? (
                       <div className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 sm:h-5 sm:w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
@@ -162,9 +253,12 @@ const Login: React.FC = () => {
                   </button>
                 </div>
                 
-                <div className="mt-6">
-                  <div className="text-center text-sm text-gray-600 bg-gray-50 p-3 rounded-md border border-gray-200">
-                    <p className="font-medium mb-2">Demo Logins:</p>
+                <div 
+                  className="mt-5 sm:mt-6 reveal-on-scroll"
+                  data-anijs={animationLoaded ? "if: load, on: window, do: fadeIn animated, after: removeAnim" : ""}
+                >
+                  <div className="text-center text-xs sm:text-sm text-gray-600 bg-gray-50 p-2.5 sm:p-3 rounded-md border border-gray-200">
+                    <p className="font-medium mb-1 sm:mb-2">Demo Logins:</p>
                     <p className="mb-1">
                       <span className="font-bold">Admin:</span> admin@example.com / admin123
                     </p>
@@ -175,12 +269,15 @@ const Login: React.FC = () => {
                 </div>
               </form>
               
-              <div className="mt-8 text-center">
+              <div 
+                className="mt-6 sm:mt-8 text-center"
+                data-anijs={animationLoaded ? "if: load, on: window, do: fadeIn animated, after: removeAnim" : ""}
+              >
                 <Link 
                   to="/" 
-                  className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+                  className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors back-button text-sm sm:text-base"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
                   </svg>
                   Back to Home
@@ -189,7 +286,7 @@ const Login: React.FC = () => {
             </div>
           </div>
           
-          <div className="mt-8 text-center text-sm text-gray-600">
+          <div className="mt-6 sm:mt-8 text-center text-xs sm:text-sm text-gray-600">
             <p>© 2023 <span className="text-blue-600">Class</span><span className="text-orange-500">entry</span> Management System. All rights reserved.</p>
           </div>
         </div>

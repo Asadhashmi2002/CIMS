@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import FeatureCard from './FeatureCard';
 import TestimonialCard from './TestimonialCard';
 import SocialIcon from './SocialIcon';
+import ResponsiveAnimation from './ResponsiveAnimation';
+import AnimatedStats from './AnimatedStats';
 
 const Home: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -37,9 +39,34 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 relative overflow-hidden">
+      
+      {/* Background decorative elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-64 h-64 rounded-full bg-blue-100 opacity-30 blur-3xl"></div>
+        <div className="absolute bottom-10 right-0 w-80 h-80 rounded-full bg-indigo-100 opacity-40 blur-3xl"></div>
+        <div className="absolute top-1/4 right-1/4 w-40 h-40 rounded-full bg-purple-100 opacity-20 blur-3xl"></div>
+        <div className="absolute bottom-1/4 left-1/4 w-56 h-56 rounded-full bg-green-100 opacity-30 blur-3xl"></div>
+        
+        {/* Animated dots pattern */}
+        <div className="hidden lg:block absolute inset-0 opacity-10">
+          {[...Array(20)].map((_, i) => (
+            <div 
+              key={i}
+              className="absolute w-2 h-2 rounded-full bg-blue-500"
+              style={{
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+                animation: `pulse 15s infinite ${i * 0.5}s`,
+                opacity: 0.3 + (Math.random() * 0.5)
+              }}
+            ></div>
+          ))}
+        </div>
+      </div>
+
       {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
+      <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
         {/* Top Bar - Contact Info */}
         <div className="bg-gray-900 text-white hidden md:block">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
@@ -101,6 +128,7 @@ const Home: React.FC = () => {
                 <Link to="/services" className="text-gray-800 hover:text-blue-600 font-medium transition-colors">Services</Link>
                 <Link to="/pricing" className="text-gray-800 hover:text-blue-600 font-medium transition-colors">Pricing</Link>
                 <Link to="/contact" className="text-gray-800 hover:text-blue-600 font-medium transition-colors">Contact</Link>
+                <Link to="/batches" className="text-gray-800 hover:text-blue-600 font-medium transition-colors">Batch Demo</Link>
                 <div>
                   <Link to="/login" className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-md text-white font-medium shadow-sm hover:shadow-md transition-all">
                     Login
@@ -181,6 +209,13 @@ const Home: React.FC = () => {
               >
                 Contact
               </Link>
+              <Link 
+                to="/batches" 
+                className="block py-2 px-3 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-blue-600 rounded-md"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Batch Demo
+              </Link>
             </div>
             
             {/* Mobile contact info */}
@@ -223,13 +258,13 @@ const Home: React.FC = () => {
       </header>
       
       {/* Hero Section */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="relative bg-transparent border-b border-gray-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
           <div className="md:flex items-center">
             <div className="md:w-1/2 text-center md:text-left mb-8 md:mb-0">
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 leading-tight">
                 Welcome to the Future of 
-                <span className="block sm:inline text-blue-600 mt-2 sm:mt-0 sm:ml-2">
+                <span className="block sm:inline text-gradient bg-gradient-to-r from-blue-600 to-indigo-600 mt-2 sm:mt-0 sm:ml-2">
                   Education Management
                 </span>
               </h2>
@@ -237,23 +272,30 @@ const Home: React.FC = () => {
                 A complete solution for managing your coaching institute with attendance tracking, 
                 fee management, and automated notifications.
               </p>
-              <div className="mt-8">
+              <div className="mt-8 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 justify-center md:justify-start">
                 <Link 
                   to="/login" 
-                  className="inline-flex items-center px-6 py-3 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-md hover:shadow-lg transition-all"
+                  className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-md shadow-md hover:shadow-lg transform transition-all duration-200 hover:scale-105"
                 >
                   Get Started
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </Link>
+                <a 
+                  href="#features" 
+                  className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-blue-600 bg-white border border-blue-200 rounded-md shadow-sm hover:bg-blue-50 transform transition-all duration-200"
+                >
+                  Learn More
+                </a>
               </div>
             </div>
-            <div className="md:w-1/2">
+            <div className="md:w-1/2 relative">
+              <div className="absolute -top-4 -right-4 w-full h-full rounded-lg bg-gradient-to-br from-blue-500/10 to-indigo-500/10"></div>
               <img 
                 src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80" 
                 alt="Education Management" 
-                className="rounded-lg shadow-xl"
+                className="relative rounded-lg shadow-xl transform hover:scale-[1.01] transition-transform duration-300"
               />
             </div>
           </div>
@@ -261,58 +303,29 @@ const Home: React.FC = () => {
       </div>
       
       {/* Stats Section */}
-      <div className="py-12 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">Trusted by Educational Institutions</h3>
-            <p className="mt-3 text-gray-600 max-w-2xl mx-auto">
-              Our system helps educational institutions improve efficiency and parent satisfaction
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard 
-              title="Students Managed" 
-              value="10,000+" 
-              icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path d="M12 14l9-5-9-5-9 5 9 5z" />
-                <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
-              </svg>} 
-            />
-            <StatCard 
-              title="Fees Collected" 
-              value="₹2.5 Cr+" 
-              icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>} 
-            />
-            <StatCard 
-              title="Schools & Institutes" 
-              value="100+" 
-              icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>} 
-            />
-            <StatCard 
-              title="Attendance Tracked" 
-              value="1M+" 
-              icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-              </svg>} 
-            />
-          </div>
+      <div className="py-12 bg-gradient-to-br from-gray-50 to-white relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute inset-0 overflow-hidden opacity-10">
+          <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-200 rounded-full"></div>
+          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-200 rounded-full"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-blue-100 rounded-full blur-3xl"></div>
         </div>
+        
+        <AnimatedStats />
       </div>
       
       {/* Feature Cards */}
-      <div className="bg-white py-12 sm:py-16">
+      <div id="features" className="bg-white py-12 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">Key Features</h3>
             <p className="mt-3 text-gray-600 max-w-2xl mx-auto">
               Discover how our system can transform your educational institution
             </p>
+          </div>
+          
+          <div className="mb-16">
+            <ResponsiveAnimation />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
@@ -478,14 +491,17 @@ interface StatCardProps {
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => {
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow">
-      <div className="flex items-center">
-        <div className="mr-4">
+    <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow relative overflow-hidden group">
+      {/* Decorative gradient background that appears on hover */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+      
+      <div className="flex items-center relative">
+        <div className="mr-4 bg-gray-50 rounded-full p-3 group-hover:bg-white transition-colors duration-300">
           {icon}
         </div>
         <div>
           <p className="text-sm font-medium text-gray-600">{title}</p>
-          <h3 className="text-2xl font-bold text-gray-900">{value}</h3>
+          <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-gradient group-hover:from-blue-700 group-hover:to-indigo-700 transition-all duration-300">{value}</h3>
         </div>
       </div>
     </div>

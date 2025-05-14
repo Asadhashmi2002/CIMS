@@ -15,14 +15,65 @@ const statsRoutes = require('./routes/stats');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Enable CORS for all origins in development
+// Enable CORS with more permissive configuration
 app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE']
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+    
+    // Allow specific origins
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5000',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5000'
+    ];
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(null, true); // Still allow it in development, but log it
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
+
+// Additional headers to handle various proxy/firewall issues
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+  
+  // Log API requests in development for debugging
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`${req.method} ${req.originalUrl}`);
+  }
+  
+  // Handle OPTIONS method
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  
+  next();
+});
 
 // Parse JSON requests
 app.use(express.json());
+
+// Global error handler for API routes
+const apiErrorHandler = (err, req, res, next) => {
+  console.error('API Error:', err);
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    message: err.message || 'An unexpected error occurred',
+    error: process.env.NODE_ENV === 'production' ? null : err.stack
+  });
+};
 
 // Use route files
 app.use('/api/auth', authRoutes);
@@ -32,6 +83,9 @@ app.use('/api/batches', batchRoutes);
 app.use('/api/fees', feeRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/stats', statsRoutes);
+
+// Apply error handler after routes
+app.use('/api', apiErrorHandler);
 
 // Handle undefined API routes
 app.all('/api/*', (req, res) => {

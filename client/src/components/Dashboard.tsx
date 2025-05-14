@@ -103,6 +103,7 @@ const Dashboard: React.FC = () => {
   const [batchFormError, setBatchFormError] = useState('');
   const [apiBatchError, setApiBatchError] = useState('');
   const [batchSuccessMessage, setBatchSuccessMessage] = useState('');
+  const [teacherSearchTerm, setTeacherSearchTerm] = useState('');
   
   // Real-time dashboard data
   const [stats, setStats] = useState<Stats>({
@@ -125,15 +126,44 @@ const Dashboard: React.FC = () => {
   // At the top of the Dashboard component, add a new state for tracking manual refresh
   const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
   
+  // Add these new states
+  const [retryCounter, setRetryCounter] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+  
   // Define fetch functions outside of useEffect for reuse
   const fetchTeachers = async () => {
     setIsLoading(true);
+    
     try {
       const response = await teacherAPI.getAllTeachers();
+      
       setTeachers(response.data);
+      setApiError(''); // Clear any previous errors
       setIsLoading(false);
-    } catch (error) {
-      setApiError('Failed to load teachers. Please try again later.');
+    } catch (error: any) {
+      console.error('Failed to load teachers:', error);
+      
+      // Provide a more specific error message if possible
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (error.response.status === 404) {
+          setApiError('Teacher data not found. The server endpoint may have changed.');
+        } else if (error.response.status === 403) {
+          setApiError('You do not have permission to access teacher data.');
+        } else if (error.response.status >= 500) {
+          setApiError('Server error. Please try again later or contact support.');
+        } else {
+          setApiError(`Error ${error.response.status}: ${error.response.data?.message || 'Failed to load teachers.'}`);
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        setApiError('Could not connect to the server. Please check your internet connection or try again later.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        setApiError('An unexpected error occurred while loading teachers. Please try again.');
+      }
+      
       setIsLoading(false);
     }
   };
@@ -244,8 +274,14 @@ const Dashboard: React.FC = () => {
     setSuccessMessage('');
     
     // Validate form
-    if (!newTeacher.email || !newTeacher.password) {
-      setFormError('Email and password are required for teacher login');
+    if (!newTeacher.email) {
+      setFormError('Email is required for teacher login');
+      return;
+    }
+    
+    // Validate password only for new teachers
+    if (!isEditingTeacher && !newTeacher.password) {
+      setFormError('Password is required for teacher login');
       return;
     }
     
@@ -259,8 +295,16 @@ const Dashboard: React.FC = () => {
     
     try {
       if (isEditingTeacher && editTeacherId) {
+        // Create a copy of the teacher data for update
+        const teacherToUpdate = { ...newTeacher };
+        
+        // Only include password in the update if it has been provided
+        if (!teacherToUpdate.password) {
+          delete teacherToUpdate.password;
+        }
+        
         // Update existing teacher
-        const response = await teacherAPI.updateTeacher(editTeacherId, newTeacher);
+        const response = await teacherAPI.updateTeacher(editTeacherId, teacherToUpdate);
         
         // Update teachers state with the updated teacher
         setTeachers(prevTeachers => 
@@ -284,13 +328,21 @@ const Dashboard: React.FC = () => {
         setIsEditingTeacher(false);
         setEditTeacherId(null);
       } else {
+        // Ensure password is provided for new teacher
+        if (!newTeacher.password) {
+          setFormError('Password is required for teacher login');
+          setIsLoading(false);
+          return;
+        }
+        
         // Create new teacher
         const response = await teacherAPI.createTeacher(newTeacher);
         
         // Add the new teacher to the state
         setTeachers(prevTeachers => [...prevTeachers, response.data.teacher]);
         
-        setSuccessMessage(`Teacher "${newTeacher.name || newTeacher.email}" created successfully!`);
+        setSuccessMessage(`Teacher "${newTeacher.name || newTeacher.email}" created successfully! 
+          They can now log in with their email and password.`);
         
         // Reset form
         setNewTeacher({
@@ -511,6 +563,17 @@ const Dashboard: React.FC = () => {
       setIsEditingBatch(false);
       setEditBatchId(null);
       
+      // Immediately refresh batch list to ensure UI is up-to-date
+      setTimeout(() => {
+        batchAPI.getAllBatches()
+          .then(response => {
+            setBatches(response.data);
+          })
+          .catch(error => {
+            console.error('Failed to refresh batches after create/update:', error);
+          });
+      }, 300);
+      
     } catch (error: any) {
       console.error('Batch operation error:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -572,6 +635,7 @@ const Dashboard: React.FC = () => {
     setEditBatchId(null);
     setBatchFormError('');
     setApiBatchError('');
+    setTeacherSearchTerm('');
   };
   
   const removeBatch = async (id: string) => {
@@ -604,6 +668,92 @@ const Dashboard: React.FC = () => {
   }
 
   const iconClass = "h-5 w-5 mr-3";
+
+  // This function will be used to safely map over batches
+  const renderBatches = (batchesArray: Batch[] | null | undefined) => {
+    if (!batchesArray || !Array.isArray(batchesArray) || batchesArray.length === 0) {
+      return (
+        <tr>
+          <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+            No batches available
+          </td>
+        </tr>
+      );
+    }
+
+    return batchesArray.map((batch) => {
+      if (!batch || typeof batch !== 'object' || !batch.id) return null;
+      
+      return (
+        <tr key={batch.id} className="hover:bg-gray-50">
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                <span className="text-indigo-800 font-medium text-sm">
+                  {batch.id}
+                </span>
+              </div>
+              <div className="ml-4">
+                <div className="text-sm font-medium text-gray-900">
+                  {batch.name}
+                </div>
+              </div>
+            </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="text-sm text-gray-900">{batch.subject}</div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="text-sm text-gray-900">
+              {batch.teacherNames && batch.teacherNames.length > 0 
+                ? batch.teacherNames.join(', ') 
+                : 'No teachers assigned'}
+            </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="text-sm text-gray-900">{batch.schedule}</div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+              {batch.studentCount} students
+            </span>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => alert(`View students for ${batch.name} (Not implemented in demo)`)}
+                className="text-indigo-600 hover:text-indigo-900 p-1"
+                title="View Students"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => editBatch(batch.id)}
+                className="text-blue-600 hover:text-blue-900 p-1"
+                title="Edit Batch"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => removeBatch(batch.id)}
+                className="text-red-600 hover:text-red-900 p-1"
+                title="Delete Batch"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+      );
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
@@ -851,20 +1001,20 @@ const Dashboard: React.FC = () => {
                     />
                     <StatCard 
                       title="Fees Collected" 
-                      value={`₹${stats.feesCollected.toLocaleString()}`} 
-                      trend="+21% from last month" 
+                      value={`₹${stats.feesCollected ? stats.feesCollected.toLocaleString() : '0'}`} 
+                      trend="+8% from last month" 
                       increasing={true}
-                      icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>} 
                     />
                     <StatCard 
                       title="Pending Fees" 
-                      value={`₹${stats.pendingFees.toLocaleString()}`} 
+                      value={`₹${stats.pendingFees ? stats.pendingFees.toLocaleString() : '0'}`} 
                       trend="-5% from last month" 
                       increasing={false}
                       icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>} 
                     />
                     <StatCard 
@@ -1045,28 +1195,7 @@ const Dashboard: React.FC = () => {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-gray-800">Teacher Management</h2>
                 <div className="flex space-x-2">
-                  <button 
-                    onClick={() => {
-                      setIsLoading(true);
-                      teacherAPI.getAllTeachers()
-                        .then(response => {
-                          setTeachers(response.data);
-                          setIsLoading(false);
-                        })
-                        .catch(error => {
-                          console.error('Failed to refresh teachers:', error);
-                          setApiError('Failed to load teachers. Please try again.');
-                          setIsLoading(false);
-                        });
-                    }}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center"
-                    disabled={isLoading}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Refresh List
-                  </button>
+                  {/* Removing refresh button */}
                   {!isAddingTeacher && (
                     <button 
                       onClick={() => {
@@ -1078,22 +1207,10 @@ const Dashboard: React.FC = () => {
                       className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center"
                       disabled={isLoading}
                     >
-                      {isLoading ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Loading...
-                        </>
-                      ) : (
-                        <>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                          Add New Teacher
-                        </>
-                      )}
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Add Teacher
                     </button>
                   )}
                 </div>
@@ -1118,23 +1235,49 @@ const Dashboard: React.FC = () => {
               
               {apiError && (
                 <div className="mb-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm">
-                  <div className="flex">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <div className="flex items-start">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                    {apiError}
+                    <div className="flex-1">
+                      <p className="font-medium">{apiError}</p>
+                      {apiError.includes('connect to the server') && (
+                        <ul className="mt-2 text-sm list-disc list-inside">
+                          <li>Check if you have an active internet connection</li>
+                          <li>Verify that the server is running</li>
+                          <li>Try refreshing the page</li>
+                        </ul>
+                      )}
+                      <div className="mt-3 flex space-x-3">
+                        <button 
+                          onClick={() => setApiError('')} 
+                          className="text-xs text-red-800 hover:text-red-900 underline"
+                        >
+                          Dismiss
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setApiError('');
+                            setIsLoading(true);
+                            setTimeout(() => {
+                              fetchTeachers();
+                            }, 300);
+                          }} 
+                          className="inline-flex items-center px-3 py-1.5 border border-red-600 text-xs font-medium rounded text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Retry Connection
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <button 
-                    onClick={() => setApiError('')} 
-                    className="mt-2 text-xs text-red-800 hover:text-red-900 underline"
-                  >
-                    Dismiss
-                  </button>
                 </div>
               )}
               
               {isAddingTeacher && (
-                <div className="bg-white rounded-lg p-6 mb-6 border border-gray-200 shadow-md">
+                <div className="bg-white rounded-lg p-6 mb-6 border border-gray-200 shadow-md transition-all duration-300 ease-in-out transform hover:shadow-lg">
                   <div className="border-b border-gray-200 pb-4 mb-6">
                     <div className="flex justify-between items-center">
                       <h3 className="text-lg font-medium text-gray-800 flex items-center">
@@ -1145,7 +1288,7 @@ const Dashboard: React.FC = () => {
                       </h3>
                       <button
                         onClick={cancelForm}
-                        className="text-gray-500 hover:text-gray-700 transition-colors bg-gray-100 hover:bg-gray-200 rounded-full p-2"
+                        className="text-gray-500 hover:text-gray-700 transition-colors bg-gray-100 hover:bg-gray-200 rounded-full p-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1160,7 +1303,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   
                   {formError && (
-                    <div className="mb-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm">
+                    <div className="mb-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm animate-fadeIn">
                       <div className="flex">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -1172,13 +1315,13 @@ const Dashboard: React.FC = () => {
                   
                   <form onSubmit={handleAddTeacher} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                      <div className="space-y-1">
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                      <div className="space-y-1 group">
+                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
                           Full Name <span className="text-gray-400">(optional)</span>
                         </label>
                         <div className="mt-1 relative rounded-md shadow-sm">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
                           </div>
@@ -1188,19 +1331,19 @@ const Dashboard: React.FC = () => {
                             name="name"
                             value={newTeacher.name}
                             onChange={handleTeacherInputChange}
-                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-md"
+                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-3 sm:text-sm border-gray-300 rounded-lg shadow-sm transition-all hover:border-blue-300"
                             placeholder="John Doe"
                           />
                         </div>
                       </div>
                       
-                      <div className="space-y-1">
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                      <div className="space-y-1 group">
+                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
                           Email Address <span className="text-red-500">*</span>
                         </label>
                         <div className="mt-1 relative rounded-md shadow-sm">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                             </svg>
                           </div>
@@ -1210,16 +1353,16 @@ const Dashboard: React.FC = () => {
                             name="email"
                             value={newTeacher.email}
                             onChange={handleTeacherInputChange}
-                            className={`focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-md ${
+                            className={`focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-3 sm:text-sm border-gray-300 rounded-lg shadow-sm transition-all hover:border-blue-300 ${
                               !isEditingTeacher && teachers.some(t => t.email === newTeacher.email && newTeacher.email !== '') 
-                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50' 
                                 : ''
                             }`}
                             placeholder="teacher@example.com"
                             required
                           />
                           {!isEditingTeacher && teachers.some(t => t.email === newTeacher.email && newTeacher.email !== '') && (
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center animate-pulse">
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                               </svg>
@@ -1227,19 +1370,19 @@ const Dashboard: React.FC = () => {
                           )}
                         </div>
                         {!isEditingTeacher && teachers.some(t => t.email === newTeacher.email && newTeacher.email !== '') ? (
-                          <p className="mt-1 text-xs text-red-600">This email already exists in the system. Please use a different email.</p>
+                          <p className="mt-1 text-xs text-red-600 animate-fadeIn">This email already exists in the system. Please use a different email.</p>
                         ) : (
                           <p className="mt-1 text-xs text-blue-600">This will be used as the login ID</p>
                         )}
                       </div>
                       
-                      <div className="space-y-1">
-                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                      <div className="space-y-1 group">
+                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
                           Phone Number <span className="text-gray-400">(optional)</span>
                         </label>
                         <div className="mt-1 relative rounded-md shadow-sm">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2z" />
                             </svg>
                           </div>
@@ -1249,19 +1392,19 @@ const Dashboard: React.FC = () => {
                             name="phone"
                             value={newTeacher.phone}
                             onChange={handleTeacherInputChange}
-                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-md"
+                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-3 sm:text-sm border-gray-300 rounded-lg shadow-sm transition-all hover:border-blue-300"
                             placeholder="+91 98765 43210"
                           />
                         </div>
                       </div>
                       
-                      <div className="space-y-1">
-                        <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
+                      <div className="space-y-1 group">
+                        <label htmlFor="subject" className="block text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
                           Subject <span className="text-gray-400">(optional)</span>
                         </label>
                         <div className="mt-1 relative rounded-md shadow-sm">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                             </svg>
                           </div>
@@ -1271,20 +1414,20 @@ const Dashboard: React.FC = () => {
                             name="subject"
                             value={newTeacher.subject}
                             onChange={handleTeacherInputChange}
-                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-md"
+                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-3 sm:text-sm border-gray-300 rounded-lg shadow-sm transition-all hover:border-blue-300"
                             placeholder="Physics, Mathematics, etc."
                           />
                         </div>
                       </div>
                       
-                      <div className="space-y-1">
-                        <label htmlFor="joiningDate" className="block text-sm font-medium text-gray-700">
+                      <div className="space-y-1 group">
+                        <label htmlFor="joiningDate" className="block text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
                           Joining Date <span className="text-gray-400">(optional)</span>
                         </label>
                         <div className="mt-1 relative rounded-md shadow-sm">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
                             </svg>
                           </div>
                           <input
@@ -1293,18 +1436,18 @@ const Dashboard: React.FC = () => {
                             name="joiningDate"
                             value={newTeacher.joiningDate}
                             onChange={handleTeacherInputChange}
-                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-md"
+                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-3 sm:text-sm border-gray-300 rounded-lg shadow-sm transition-all hover:border-blue-300"
                           />
                         </div>
                       </div>
                       
-                      <div className="space-y-1">
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                      <div className="space-y-1 group">
+                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
                           Password <span className="text-red-500">*</span>
                         </label>
                         <div className="mt-1 relative rounded-md shadow-sm">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h14a2 2 0 002-2v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
                           </div>
@@ -1314,15 +1457,16 @@ const Dashboard: React.FC = () => {
                             name="password"
                             value={newTeacher.password || ''}
                             onChange={handleTeacherInputChange}
-                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-10 py-2.5 sm:text-sm border-gray-300 rounded-md"
-                            placeholder="••••••••"
-                            required
+                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-10 py-3 sm:text-sm border-gray-300 rounded-lg shadow-sm transition-all hover:border-blue-300"
+                            placeholder={isEditingTeacher ? "••••••• (leave empty to keep current)" : "••••••••"}
+                            required={!isEditingTeacher}
                           />
                           <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                             <button
                               type="button"
                               onClick={togglePasswordVisibility}
-                              className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                              className="text-gray-400 hover:text-gray-600 focus:outline-none focus:text-blue-500 transition-colors"
+                              aria-label={showPassword ? "Hide password" : "Show password"}
                             >
                               {showPassword ? (
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -1338,7 +1482,11 @@ const Dashboard: React.FC = () => {
                             </button>
                           </div>
                         </div>
-                        <p className="mt-1 text-xs text-blue-600">This will be used for login authentication</p>
+                        <p className="mt-1 text-xs text-blue-600">
+                          {isEditingTeacher 
+                            ? "Leave empty to keep current password. Set new password to change it."
+                            : "Teacher will use this password with their email to log in to the teacher portal"}
+                        </p>
                       </div>
                     </div>
                     
@@ -1355,9 +1503,18 @@ const Dashboard: React.FC = () => {
                           </button>
                           <button
                             type="submit"
-                            className="px-6 py-2.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors flex items-center"
+                            className="px-6 py-2.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
+                            disabled={!isEditingTeacher && teachers.some(t => t.email === newTeacher.email && newTeacher.email !== '')}
                           >
-                            {isEditingTeacher ? (
+                            {isLoading ? (
+                              <>
+                                <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Processing...
+                              </>
+                            ) : isEditingTeacher ? (
                               <>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1380,137 +1537,140 @@ const Dashboard: React.FC = () => {
                 </div>
               )}
               
+              {/* Show existing teachers even when there's an error */}
               <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-medium text-gray-800 mb-4">Teacher List</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <h3 className="text-lg font-medium text-gray-800">Existing Teachers</h3>
+                    {apiError && teachers.length > 0 && (
+                      <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-md flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        Offline data
+                      </span>
+                    )}
+                  </div>
+                  {/* No refresh button here */}
+                </div>
                 
-                {isLoading && !isAddingTeacher ? (
+                {isLoading ? (
                   <div className="flex justify-center items-center p-8">
-                    <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                   </div>
                 ) : teachers.length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  <div className="bg-gray-50 rounded-lg p-8 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
-                    <p className="mt-2 text-gray-600">No teachers found</p>
-                    <button 
-                      onClick={() => setIsAddingTeacher(true)}
-                      className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Add Your First Teacher
-                    </button>
+                    <p className="text-gray-600">No teachers found</p>
+                    <p className="text-gray-500 text-sm mt-1">Teachers added to the system will appear here</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Teacher
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Contact
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Subject
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Since
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {teachers.map((teacher) => (
-                          <tr key={teacher.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                  <span className="text-indigo-800 font-medium text-sm">
-                                    {teacher.name ? teacher.name.split(' ').map(n => n[0]).join('').toUpperCase() : teacher.email[0].toUpperCase()}
-                                  </span>
-                                </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {teacher.name || '(No name provided)'}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {teacher.email}
-                                  </div>
-                                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {teachers.map(teacher => (
+                      <div key={teacher.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow teacher-card">
+                        <div className="p-4">
+                          <div className="flex items-center mb-3">
+                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 mr-3 flex-shrink-0">
+                              {teacher.name ? teacher.name.substring(0, 1).toUpperCase() : teacher.email.substring(0, 1).toUpperCase()}
+                            </div>
+                            <div className="overflow-hidden">
+                              <h4 className="font-medium text-gray-900 truncate">{teacher.name || '(No name)'}</h4>
+                              <p className="text-sm text-gray-500 truncate">{teacher.email}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="text-sm">
+                            {teacher.subject && (
+                              <div className="mb-1 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                                <span>{teacher.subject}</span>
                               </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{teacher.phone}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{teacher.subject || '(Not specified)'}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span
-                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                  teacher.status === 'active'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}
-                              >
-                                {teacher.status}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(teacher.joiningDate).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <div className="flex justify-end space-x-2">
-                                <button
-                                  onClick={() => editTeacher(teacher.id)}
-                                  className="text-indigo-600 hover:text-indigo-900 p-1"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => removeTeacher(teacher.id)}
-                                  className="text-red-600 hover:text-red-900 p-1"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                  </svg>
-                                </button>
+                            )}
+                            {teacher.phone && (
+                              <div className="mb-1 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-14a2 2 0 01-2-2v-1.5" />
+                                </svg>
+                                <span>{teacher.phone}</span>
                               </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            )}
+                            <div className="mb-1 flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                              <span>Joined: {new Date(teacher.joiningDate).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-gray-50 px-4 py-3 flex justify-between items-center">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              teacher.status === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {teacher.status}
+                          </span>
+                          
+                          <div className="flex space-x-1">
+                            <button
+                              onClick={() => editTeacher(teacher.id)}
+                              className="p-1 text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded"
+                              title="Edit teacher"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            
+                            <button
+                              onClick={() => removeTeacher(teacher.id)}
+                              className="p-1 text-red-600 hover:text-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 rounded"
+                              title="Remove teacher"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
-
-                <div className="bg-gray-50 p-4 rounded-md border border-gray-200 mt-6">
-                  <p className="text-sm text-gray-600 mb-4">
-                    <strong>Important:</strong> Teachers can log in using their email address and password. Only these two fields are required for login.
-                  </p>
-                  <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
-                    <li>Email address serves as the unique login ID</li>
-                    <li>Password is used for authentication</li>
-                    <li>Other details (name, phone, subject) are optional and can be added later</li>
-                  </ol>
-                  {teachers.length > 0 && (
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-blue-800 text-sm">
-                      <div className="font-medium">Sample Login:</div>
-                      <div className="mt-1">Email: <span className="font-mono">{teachers[0]?.email || 'example@email.com'}</span></div>
+              </div>
+              
+              <div className="bg-gray-50 p-4 rounded-md border border-gray-200 mt-6">
+                <p className="text-sm text-gray-600 mb-4">
+                  <strong>Important:</strong> Teachers can log in using their email address and password through the Teacher Portal.
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
+                  <li>Email address serves as the unique login ID</li>
+                  <li>Password is used for authentication</li>
+                  <li>Other details (name, phone, subject) are optional but recommended</li>
+                  <li>Teachers can access their dashboard at <span className="font-medium text-blue-600">/teacher/login</span></li>
+                </ol>
+                {teachers.length > 0 && (
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-blue-800 text-sm">
+                    <div className="font-medium flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Teacher Login Information:
                     </div>
-                  )}
-                </div>
+                    <div className="mt-2 ml-5">
+                      <div className="mb-1"><span className="font-semibold">URL:</span> <span className="font-mono">/teacher/login</span></div>
+                      <div className="mb-1"><span className="font-semibold">Email:</span> <span className="font-mono">{teachers[0]?.email || 'example@email.com'}</span></div>
+                      <div><span className="font-semibold">Password:</span> <span className="font-mono">[The password you created]</span></div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1623,6 +1783,7 @@ const Dashboard: React.FC = () => {
                         setBatchFormError('');
                         setApiBatchError('');
                         setBatchSuccessMessage('');
+                        setTeacherSearchTerm('');
                         
                         // Load available teachers for assignment
                         setLoadingTeachers(true);
@@ -1643,145 +1804,94 @@ const Dashboard: React.FC = () => {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Batch
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Subject
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Teacher
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Schedule
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Students
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {batches.map((batch) => (
-                          <tr key={batch.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {batches && batches.length > 0 ? 
+                        batches.filter(batch => batch != null).map((batch) => (
+                          <div key={batch.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow batch-card">
+                            {/* Header with name and badge */}
+                            <div className="flex justify-between items-start mb-3">
+                              <h4 className="font-medium text-gray-900 truncate flex-1">{batch.name || 'Unnamed Batch'}</h4>
+                              <span className="text-xs px-1.5 py-0.5 bg-green-50 text-green-700 rounded ml-2 whitespace-nowrap">Active</span>
+                            </div>
+                            
+                            {/* Batch details */}
+                            <div className="mb-3">
+                              <div className="flex items-center mb-1">
+                                <span className="text-xs font-medium text-gray-500 mr-1">ID:</span>
+                                <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-700 font-mono">{batch.id.toString().slice(-8)}</span>
+                              </div>
+                              
                               <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                  <span className="text-indigo-800 font-medium text-sm">
-                                    {batch.id}
+                                <span className="text-xs font-medium text-gray-500 mr-1">Subject:</span>
+                                <span className="text-sm text-gray-700">{batch.subject || 'Not specified'}</span>
+                              </div>
+                            </div>
+                            
+                            {/* Teacher info */}
+                            <div className="mb-2">
+                              <div className="flex items-start">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 mr-1 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <div>
+                                  <span className="text-xs font-medium text-gray-500 block">Teacher:</span>
+                                  <span className="text-sm text-gray-700 break-words">
+                                    {batch.teacherNames && batch.teacherNames.length > 0 
+                                      ? batch.teacherNames.join(', ') 
+                                      : 'No teachers assigned'}
                                   </span>
                                 </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {batch.name}
+                              </div>
+                            </div>
+                            
+                            {/* Schedule info */}
+                            {batch.schedule && (
+                              <div className="mb-2">
+                                <div className="flex items-start">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 mr-1 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                  </svg>
+                                  <div>
+                                    <span className="text-xs font-medium text-gray-500 block">Schedule:</span>
+                                    <span className="text-sm text-gray-700 break-words">{batch.schedule}</span>
                                   </div>
                                 </div>
                               </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{batch.subject}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
-                                {batch.teacherNames && batch.teacherNames.length > 0 
-                                  ? batch.teacherNames.join(', ') 
-                                  : 'No teachers assigned'}
+                            )}
+                            
+                            {/* Student count */}
+                            <div className="mt-3 flex justify-between items-center">
+                              <div className="flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                                  <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998a12.078 12.078 0 01.665-6.479L12 14z" />
+                                </svg>
+                                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">
+                                  {batch.studentCount || 0} students
+                                </span>
                               </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{batch.schedule}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                {batch.studentCount} students
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <div className="flex justify-end space-x-2">
-                                <button
-                                  onClick={() => alert(`View students for ${batch.name} (Not implemented in demo)`)}
-                                  className="text-indigo-600 hover:text-indigo-900 p-1"
-                                  title="View Students"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => editBatch(batch.id)}
-                                  className="text-blue-600 hover:text-blue-900 p-1"
-                                  title="Edit Batch"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => removeBatch(batch.id)}
-                                  className="text-red-600 hover:text-red-900 p-1"
-                                  title="Delete Batch"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="col-span-full text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                            <p className="mt-2 text-gray-600">No batches found</p>
+                          </div>
+                        )}
+                    </div>
                   </div>
                 )}
               </div>
-
-              {/* Summary Section */}
-              <div className="mt-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <div className="text-sm text-gray-700">
-                  <p className="font-medium mb-2">Quick Summary:</p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>Total Students: <span className="font-medium">{batchData?.totalStudents || 0}</span></li>
-                    <li>Total Batches: <span className="font-medium">{batchData?.batchCount || 0}</span></li>
-                    <li>Most Popular Subject: <span className="font-medium">{batchData?.batches?.[0]?.subject || 'N/A'}</span></li>
-                  </ul>
-                </div>
-              </div>
             </div>
           )}
-          
+
           {activeTab === 'batches' && (
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-gray-800">Batch Management</h2>
                 <div className="flex space-x-2">
-                  <button 
-                    onClick={() => {
-                      setBatchesLoading(true);
-                      batchAPI.getAllBatches()
-                        .then(response => {
-                          setBatches(response.data);
-                          setBatchesLoading(false);
-                        })
-                        .catch(error => {
-                          console.error('Failed to refresh batches:', error);
-                          setApiBatchError('Failed to load batches. Please try again.');
-                          setBatchesLoading(false);
-                        });
-                    }}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center"
-                    disabled={batchesLoading}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Refresh List
-                  </button>
                   {!isAddingBatch && (
                     <button 
                       onClick={() => {
@@ -1789,6 +1899,7 @@ const Dashboard: React.FC = () => {
                         setBatchFormError('');
                         setApiBatchError('');
                         setBatchSuccessMessage('');
+                        setTeacherSearchTerm('');
                         
                         // Load available teachers for assignment
                         setLoadingTeachers(true);
@@ -1804,10 +1915,10 @@ const Dashboard: React.FC = () => {
                       }}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
-                      Create New Batch
+                      Add Batch
                     </button>
                   )}
                 </div>
@@ -1846,20 +1957,23 @@ const Dashboard: React.FC = () => {
                   </button>
                 </div>
               )}
+
+              {/* Batch Form and List sections */}
               
+              {/* Batch Creation Form */}
               {isAddingBatch && (
-                <div className="bg-white rounded-lg p-6 mb-6 border border-gray-200 shadow-md">
+                <div className="bg-white rounded-lg p-6 mb-6 border border-gray-200 shadow-md transition-all duration-300 ease-in-out transform hover:shadow-lg">
                   <div className="border-b border-gray-200 pb-4 mb-6">
                     <div className="flex justify-between items-center">
                       <h3 className="text-lg font-medium text-gray-800 flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
-                        {isEditingBatch ? 'Edit Batch' : 'Create New Batch'}
+                        {isEditingBatch ? 'Edit Batch' : 'Add New Batch'}
                       </h3>
                       <button
                         onClick={cancelBatchForm}
-                        className="text-gray-500 hover:text-gray-700 transition-colors bg-gray-100 hover:bg-gray-200 rounded-full p-2"
+                        className="text-gray-500 hover:text-gray-700 transition-colors bg-gray-100 hover:bg-gray-200 rounded-full p-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1868,13 +1982,13 @@ const Dashboard: React.FC = () => {
                     </div>
                     <p className="mt-1 text-sm text-gray-500">
                       {isEditingBatch ? 
-                        'Update the batch details. Name and subject are required.' : 
-                        'Fill in the details to create a new batch.'}
+                        'Update the batch details. You can assign teachers and set the schedule.' : 
+                        'Fill in the details to add a new batch to the platform.'}
                     </p>
                   </div>
                   
                   {batchFormError && (
-                    <div className="mb-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm">
+                    <div className="mb-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm animate-fadeIn">
                       <div className="flex">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -1886,36 +2000,36 @@ const Dashboard: React.FC = () => {
                   
                   <form onSubmit={handleAddBatch} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                      <div className="space-y-1">
-                        <label htmlFor="batchName" className="block text-sm font-medium text-gray-700">
+                      <div className="space-y-1 group">
+                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
                           Batch Name <span className="text-red-500">*</span>
                         </label>
                         <div className="mt-1 relative rounded-md shadow-sm">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                             </svg>
                           </div>
                           <input
                             type="text"
-                            id="batchName"
+                            id="name"
                             name="name"
                             value={newBatch.name}
                             onChange={handleBatchInputChange}
-                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-md"
-                            placeholder="Mathematics B01"
+                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-3 sm:text-sm border-gray-300 rounded-lg shadow-sm transition-all hover:border-blue-300"
+                            placeholder="e.g. Physics Batch A"
                             required
                           />
                         </div>
                       </div>
                       
-                      <div className="space-y-1">
-                        <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
+                      <div className="space-y-1 group">
+                        <label htmlFor="subject" className="block text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
                           Subject <span className="text-red-500">*</span>
                         </label>
                         <div className="mt-1 relative rounded-md shadow-sm">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                             </svg>
                           </div>
@@ -1925,54 +2039,228 @@ const Dashboard: React.FC = () => {
                             name="subject"
                             value={newBatch.subject}
                             onChange={handleBatchInputChange}
-                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-md"
-                            placeholder="Mathematics, Physics, etc."
+                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-3 sm:text-sm border-gray-300 rounded-lg shadow-sm transition-all hover:border-blue-300"
+                            placeholder="e.g. Physics, Chemistry, Mathematics"
                             required
                           />
                         </div>
                       </div>
                       
-                      <div className="space-y-1">
-                        <label htmlFor="teacherIds" className="block text-sm font-medium text-gray-700">
-                          Assign Teachers <span className="text-gray-400">(optional)</span>
+                      <div className="space-y-1 group">
+                        <label htmlFor="teacherIds" className="block text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
+                          Teacher <span className="text-gray-400">(optional)</span>
                         </label>
-                        <div className="mt-1 relative rounded-md shadow-sm">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                          </div>
-                          <select
-                            id="teacherIds"
-                            name="teacherIds"
-                            value={newBatch.teacherIds}
-                            onChange={handleBatchInputChange}
-                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-md"
-                            multiple
-                            size={4}
+                        <div className="mt-1 relative">
+                          {/* Dropdown Button */}
+                          <button 
+                            type="button" 
+                            id="teacherDropdownButton" 
+                            className="relative w-full bg-white border border-gray-300 rounded-lg shadow-sm pl-3 pr-10 py-2 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            onClick={() => {
+                              const dropdown = document.getElementById('teacherDropdown');
+                              if (dropdown) dropdown.classList.toggle('hidden');
+                            }}
                           >
-                            {loadingTeachers ? (
-                              <option value="" disabled>Loading teachers...</option>
-                            ) : (
-                              availableTeachers.map(teacher => (
-                                <option key={teacher.id} value={teacher.id}>
-                                  {teacher.name || teacher.email}
-                                </option>
-                              ))
+                            <span className="flex items-center">
+                              <svg className="flex-shrink-0 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              <span className="ml-3 block truncate">
+                                {newBatch.teacherIds.length === 0 
+                                  ? "Select teachers..." 
+                                  : `${newBatch.teacherIds.length} teacher${newBatch.teacherIds.length > 1 ? 's' : ''} selected`}
+                              </span>
+                            </span>
+                            <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                              <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fillRule="evenodd" d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            </span>
+                          </button>
+
+                          {/* Dropdown menu */}
+                          <div id="teacherDropdown" className="z-10 hidden bg-white rounded-lg shadow-sm w-full dark:bg-gray-700 mt-1">
+                            {/* Search box */}
+                            <div className="p-3">
+                              <label htmlFor="input-teacher-search" className="sr-only">Search</label>
+                              <div className="relative">
+                                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                  <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+                                  </svg>
+                                </div>
+                                <input 
+                                  type="text" 
+                                  id="input-teacher-search"
+                                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white"
+                                  placeholder="Search teachers"
+                                  value={teacherSearchTerm}
+                                  onChange={(e) => setTeacherSearchTerm(e.target.value)}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Selected teacher chips */}
+                            {newBatch.teacherIds.length > 0 && (
+                              <div className="px-3 pb-2 flex flex-wrap gap-1">
+                                {newBatch.teacherIds.map(id => {
+                                  const teacher = availableTeachers.find(t => t.id === id);
+                                  return teacher ? (
+                                    <span 
+                                      key={id}
+                                      className="flex items-center bg-blue-100 text-blue-800 text-xs rounded px-2 py-1"
+                                    >
+                                      {teacher.name || teacher.email?.split('@')[0]}
+                                      <button
+                                        type="button"
+                                        className="ml-1 text-blue-500 hover:text-blue-700"
+                                        onClick={() => {
+                                          setNewBatch(prev => ({
+                                            ...prev,
+                                            teacherIds: prev.teacherIds.filter(tId => tId !== id)
+                                          }));
+                                        }}
+                                      >
+                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                        </svg>
+                                      </button>
+                                    </span>
+                                  ) : null;
+                                })}
+                              </div>
                             )}
-                          </select>
+
+                            {/* Options List */}
+                            {loadingTeachers ? (
+                              <div className="flex justify-center items-center p-4">
+                                <svg className="animate-spin h-5 w-5 text-blue-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span className="text-gray-500">Loading teachers...</span>
+                              </div>
+                            ) : (
+                              <ul className="h-48 px-3 pb-3 overflow-y-auto text-sm text-gray-700 dark:text-gray-200">
+                                {availableTeachers.length === 0 ? (
+                                  <li className="py-2 px-2 text-center text-gray-500">
+                                    No teachers available
+                                  </li>
+                                ) : (
+                                  availableTeachers
+                                    .filter(t => t.status === 'active')
+                                    .filter(t => {
+                                      if (!teacherSearchTerm) return true;
+                                      return (
+                                        t.name?.toLowerCase().includes(teacherSearchTerm.toLowerCase()) || 
+                                        t.email?.toLowerCase().includes(teacherSearchTerm.toLowerCase()) ||
+                                        t.subject?.toLowerCase().includes(teacherSearchTerm.toLowerCase())
+                                      );
+                                    })
+                                    .map(teacher => {
+                                      const isSelected = newBatch.teacherIds.includes(teacher.id);
+                                      const checkboxId = `teacher-checkbox-${teacher.id}`;
+                                      return (
+                                        <li key={teacher.id}>
+                                          <div className="flex items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-600">
+                                            <input
+                                              id={checkboxId}
+                                              type="checkbox"
+                                              checked={isSelected}
+                                              onChange={() => {
+                                                if (isSelected) {
+                                                  setNewBatch(prev => ({
+                                                    ...prev,
+                                                    teacherIds: prev.teacherIds.filter(id => id !== teacher.id)
+                                                  }));
+                                                } else {
+                                                  setNewBatch(prev => ({
+                                                    ...prev,
+                                                    teacherIds: [...prev.teacherIds, teacher.id]
+                                                  }));
+                                                }
+                                              }}
+                                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                                            />
+                                            <label 
+                                              htmlFor={checkboxId} 
+                                              className="w-full ms-2 text-sm font-medium text-gray-900 dark:text-gray-300 cursor-pointer"
+                                            >
+                                              {teacher.name || teacher.email}
+                                              {teacher.subject && (
+                                                <span className="text-xs text-gray-500 ml-1">
+                                                  ({teacher.subject})
+                                                </span>
+                                              )}
+                                            </label>
+                                          </div>
+                                        </li>
+                                      );
+                                    })
+                                )}
+                              </ul>
+                            )}
+
+                            {/* Footer actions */}
+                            <div className="flex gap-2 p-3 text-sm font-medium border-t border-gray-200 rounded-b-lg bg-gray-50 dark:border-gray-600 dark:bg-gray-700">
+                              <button
+                                type="button"
+                                className="flex-1 flex items-center justify-center px-3 py-2 text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-blue-500 hover:underline rounded-md disabled:opacity-50 disabled:hover:bg-transparent"
+                                disabled={availableTeachers.length === 0 || newBatch.teacherIds.length === availableTeachers.length}
+                                onClick={() => {
+                                  const allTeacherIds = availableTeachers.map(t => t.id);
+                                  setNewBatch(prev => ({
+                                    ...prev,
+                                    teacherIds: allTeacherIds
+                                  }));
+                                }}
+                              >
+                                <svg className="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16" />
+                                </svg>
+                                Select All
+                              </button>
+                              <button
+                                type="button"
+                                className="flex-1 flex items-center justify-center px-3 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-red-500 hover:underline rounded-md disabled:opacity-50 disabled:hover:bg-transparent"
+                                disabled={newBatch.teacherIds.length === 0}
+                                onClick={() => {
+                                  setNewBatch(prev => ({
+                                    ...prev,
+                                    teacherIds: []
+                                  }));
+                                }}
+                              >
+                                <svg className="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 18">
+                                  <path d="M6.5 9a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9ZM8 10H5a5.006 5.006 0 0 0-5 5v2a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-2a5.006 5.006 0 0 0-5-5Zm11-3h-6a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2Z"/>
+                                </svg>
+                                Clear All
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Hidden input to store selected values */}
+                          <input 
+                            type="hidden" 
+                            name="teacherIds" 
+                            value={newBatch.teacherIds.join(',')} 
+                          />
                         </div>
-                        <p className="mt-1 text-xs text-gray-500">Hold Ctrl (or Cmd on Mac) to select multiple teachers</p>
+                        <div className="mt-1">
+                          <p className="text-xs text-blue-600">
+                            Click to select teachers for this batch
+                          </p>
+                        </div>
                       </div>
                       
-                      <div className="space-y-1">
-                        <label htmlFor="schedule" className="block text-sm font-medium text-gray-700">
+                      <div className="space-y-1 group">
+                        <label htmlFor="schedule" className="block text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
                           Schedule <span className="text-gray-400">(optional)</span>
                         </label>
                         <div className="mt-1 relative rounded-md shadow-sm">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
                             </svg>
                           </div>
                           <input
@@ -1981,8 +2269,8 @@ const Dashboard: React.FC = () => {
                             name="schedule"
                             value={newBatch.schedule}
                             onChange={handleBatchInputChange}
-                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-md"
-                            placeholder="Mon, Wed, Fri - 09:00 AM"
+                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-3 sm:text-sm border-gray-300 rounded-lg shadow-sm transition-all hover:border-blue-300"
+                            placeholder="e.g. Mon, Wed, Fri 4:00 PM - 6:00 PM"
                           />
                         </div>
                       </div>
@@ -2001,7 +2289,7 @@ const Dashboard: React.FC = () => {
                           </button>
                           <button
                             type="submit"
-                            className="px-6 py-2.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors flex items-center"
+                            className="px-6 py-2.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
                           >
                             {isEditingBatch ? (
                               <>
@@ -2026,145 +2314,106 @@ const Dashboard: React.FC = () => {
                 </div>
               )}
               
-              <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-medium text-gray-800 mb-4">Batch List</h3>
-                
-                {batchesLoading ? (
-                  <div className="flex justify-center items-center p-8">
-                    <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  </div>
-                ) : !batches || batches.length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                    <p className="mt-2 text-gray-600">No batches found</p>
-                    <button 
-                      onClick={() => {
-                        setIsAddingBatch(true);
-                        setBatchFormError('');
-                        setApiBatchError('');
-                        setBatchSuccessMessage('');
-                        
-                        // Load available teachers for assignment
-                        setLoadingTeachers(true);
-                        teacherAPI.getAllTeachers()
-                          .then(response => {
-                            setAvailableTeachers(response.data);
-                            setLoadingTeachers(false);
-                          })
-                          .catch(error => {
-                            console.error('Failed to load available teachers:', error);
-                            setLoadingTeachers(false);
-                          });
-                      }}
-                      className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Create Your First Batch
-                    </button>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Batch
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Subject
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Teacher
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Schedule
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Students
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {batches.map((batch) => (
-                          <tr key={batch.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                  <span className="text-indigo-800 font-medium text-sm">
-                                    {batch.id}
-                                  </span>
-                                </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {batch.name}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{batch.subject}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
-                                {batch.teacherNames && batch.teacherNames.length > 0 
-                                  ? batch.teacherNames.join(', ') 
-                                  : 'No teachers assigned'}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{batch.schedule}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                {batch.studentCount} students
+              {/* Card Layout for Batches List */}
+              {!isAddingBatch && (
+                <div className="mt-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {batches && batches.length > 0 ? 
+                      batches.filter(batch => batch != null).map((batch) => (
+                        <div key={batch.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                          <div className="p-4">
+                            {/* Header with batch name */}
+                            <div className="flex justify-between items-center mb-3">
+                              <h3 className="font-medium text-gray-900 truncate">{batch.name || 'Unnamed Batch'}</h3>
+                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                Active
                               </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <div className="flex justify-end space-x-2">
-                                <button
-                                  onClick={() => alert(`View students for ${batch.name} (Not implemented in demo)`)}
-                                  className="text-indigo-600 hover:text-indigo-900 p-1"
-                                  title="View Students"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => editBatch(batch.id)}
-                                  className="text-blue-600 hover:text-blue-900 p-1"
-                                  title="Edit Batch"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => removeBatch(batch.id)}
-                                  className="text-red-600 hover:text-red-900 p-1"
-                                  title="Delete Batch"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
+                            </div>
+                            
+                            {/* Batch details */}
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center text-gray-600">
+                                <span className="mr-2 font-medium">ID:</span>
+                                <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-xs">{batch.id.toString().slice(-8)}</span>
                               </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                              
+                              <div className="flex items-center text-gray-600">
+                                <span className="mr-2 font-medium">Subject:</span>
+                                <span>{batch.subject || 'Not specified'}</span>
+                              </div>
+                              
+                              <div className="flex items-start text-gray-600">
+                                <span className="mr-2 font-medium">Teacher:</span>
+                                <span className="flex-1">
+                                  {batch.teacherNames && batch.teacherNames.length > 0 
+                                    ? batch.teacherNames.join(', ') 
+                                    : 'No teachers assigned'}
+                                </span>
+                              </div>
+                              
+                              {batch.schedule && (
+                                <div className="flex items-center text-gray-600">
+                                  <span className="mr-2 font-medium">Schedule:</span>
+                                  <span>{batch.schedule}</span>
+                                </div>
+                              )}
+                              
+                              <div className="flex items-center text-gray-600">
+                                <span className="mr-2 font-medium">Students:</span>
+                                <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                  {batch.studentCount || 0} students
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Actions */}
+                          <div className="bg-gray-50 px-4 py-3 flex justify-end space-x-2">
+                            <button
+                              onClick={() => alert(`View students for ${batch.name}`)}
+                              className="p-1 text-indigo-600 hover:text-indigo-900 focus:outline-none"
+                              title="View Students"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => editBatch(batch.id)}
+                              className="p-1 text-blue-600 hover:text-blue-900 focus:outline-none"
+                              title="Edit Batch"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => removeBatch(batch.id)}
+                              className="p-1 text-red-600 hover:text-red-900 focus:outline-none"
+                              title="Delete Batch"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="col-span-full text-center py-8 bg-gray-50 rounded-lg">
+                          <div className="flex flex-col items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                            <p className="mt-2 text-gray-600">No batches found</p>
+                            <p className="text-sm text-gray-500">Click "Add Batch" to create your first batch</p>
+                          </div>
+                        </div>
+                      )
+                    }
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
         </main>

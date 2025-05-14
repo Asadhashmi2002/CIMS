@@ -102,6 +102,37 @@ const TeacherDashboard: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (batches.length > 0) {
+      const studentData: {[key: string]: Student[]} = {};
+      
+      // Generate demo student data for each batch
+      batches.forEach(batch => {
+        // Generate between 8-15 students per batch
+        const numStudents = Math.floor(Math.random() * 8) + 8;
+        const students: Student[] = [];
+        
+        for (let i = 1; i <= numStudents; i++) {
+          const firstName = ['Ajay', 'Rahul', 'Priya', 'Neha', 'Sandeep', 'Amit', 'Pooja', 'Anjali', 'Vishal', 'Rohit'][Math.floor(Math.random() * 10)];
+          const lastName = ['Sharma', 'Patel', 'Singh', 'Kumar', 'Gupta', 'Mehta', 'Verma', 'Joshi', 'Agarwal', 'Shah'][Math.floor(Math.random() * 10)];
+          
+          students.push({
+            id: `s${batch.id}${i}`,
+            name: `${firstName} ${lastName}`,
+            parentPhone: `+91 ${Math.floor(Math.random() * 9000000000) + 1000000000}`,
+            present: true, // Default to present
+            performance: ['excellent', 'good', 'average', 'poor'][Math.floor(Math.random() * 4)] as 'excellent' | 'good' | 'average' | 'poor',
+            attendance: Math.floor(Math.random() * 21) + 80 // 80-100% attendance
+          });
+        }
+        
+        studentData[batch.id] = students;
+      });
+      
+      setStudentsByBatch(studentData);
+    }
+  }, [batches]);
+
   const loadTeacherBatches = async (teacherId: string) => {
     if (!teacherId) return;
     
@@ -109,28 +140,68 @@ const TeacherDashboard: React.FC = () => {
     setBatchError('');
     
     try {
+      // Add a small delay to ensure the loading state is visible
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const response = await batchAPI.getTeacherBatches(teacherId);
+      
+      // If no batches were found, set empty array and clear loading state
+      if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+        setBatches([]);
+        setBatchesLoading(false);
+        return;
+      }
       
       // Add some UI-specific properties to each batch
       const processedBatches = response.data.map((batch: Batch) => {
-        // Generate a random progress value and next class info for UI purposes
-        const progress = Math.floor(Math.random() * 40) + 60; // Random between 60-100
+        // Generate a progress value between 60-100%
+        const progress = Math.floor(Math.random() * 40) + 60; 
+        
+        // Generate next class day
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const today = new Date().getDay();
         const nextDay = (today + 1) % 7; // Next day
         
+        // Extract time from schedule or use default
+        const timeMatch = batch.schedule && batch.schedule.match(/\d{1,2}:\d{2}/);
+        const timeStr = timeMatch ? timeMatch[0] : '9:00 AM';
+        
         return {
           ...batch,
           progress,
-          nextClass: `${days[nextDay]}, ${batch.schedule.split(' ')[0]}`
+          nextClass: `${days[nextDay]}, ${timeStr}`,
+          status: batch.status || 'active', // Ensure status exists
+          studentCount: batch.studentCount || 0 // Ensure studentCount exists
         };
       });
       
       setBatches(processedBatches);
       setBatchesLoading(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load teacher batches:', error);
-      setBatchError('Failed to load your assigned batches. Please try again later.');
+      
+      // Provide a specific error message based on the error
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        if (error.response.status === 404) {
+          setBatchError('No batches found. Please check with your administrator.');
+        } else if (error.response.status === 403) {
+          setBatchError('You do not have permission to view these batches.');
+        } else if (error.response.status >= 500) {
+          setBatchError('Server error. Please try again later or contact support.');
+        } else {
+          setBatchError(`Error: ${error.response.data?.message || 'Failed to load batches.'}`);
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        setBatchError('Could not connect to the server. Please check your internet connection.');
+      } else {
+        // Something happened in setting up the request
+        setBatchError(error.message || 'An unexpected error occurred. Please try again.');
+      }
+      
+      // Set an empty array for batches to avoid undefined errors
+      setBatches([]);
       setBatchesLoading(false);
     }
   };
@@ -174,6 +245,37 @@ const TeacherDashboard: React.FC = () => {
     } else {
       alert(`Attendance submitted for batch ${batches.find(b => b.id === batchId)?.name}. All students are present!`);
     }
+  };
+
+  const handleBatchSelect = (batchId: string) => {
+    // Ensure we have student data for this batch
+    if (!studentsByBatch[batchId]) {
+      // Initialize student data if it doesn't exist
+      const numStudents = Math.floor(Math.random() * 8) + 8;
+      const students: Student[] = [];
+      
+      for (let i = 1; i <= numStudents; i++) {
+        const firstName = ['Ajay', 'Rahul', 'Priya', 'Neha', 'Sandeep', 'Amit', 'Pooja', 'Anjali', 'Vishal', 'Rohit'][Math.floor(Math.random() * 10)];
+        const lastName = ['Sharma', 'Patel', 'Singh', 'Kumar', 'Gupta', 'Mehta', 'Verma', 'Joshi', 'Agarwal', 'Shah'][Math.floor(Math.random() * 10)];
+        
+        students.push({
+          id: `s${batchId}${i}`,
+          name: `${firstName} ${lastName}`,
+          parentPhone: `+91 ${Math.floor(Math.random() * 9000000000) + 1000000000}`,
+          present: true,
+          performance: ['excellent', 'good', 'average', 'poor'][Math.floor(Math.random() * 4)] as 'excellent' | 'good' | 'average' | 'poor',
+          attendance: Math.floor(Math.random() * 21) + 80
+        });
+      }
+      
+      setStudentsByBatch(prev => ({
+        ...prev,
+        [batchId]: students
+      }));
+    }
+    
+    setSelectedBatch(batchId);
+    setActiveTab('attendance');
   };
 
   if (!user) {
@@ -496,17 +598,40 @@ const TeacherDashboard: React.FC = () => {
 
           {activeTab === 'batches' && (
             <div>
-              <h2 className="text-xl font-semibold mb-6">My Batches</h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold">My Batches</h2>
+                <button 
+                  onClick={() => loadTeacherBatches(user.id)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh Batches
+                </button>
+              </div>
+              
+              {batchError && (
+                <div className="mb-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm">
+                  <div className="flex">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {batchError}
+                  </div>
+                </div>
+              )}
               
               {batchesLoading ? (
                 <div className="flex justify-center items-center h-40">
-                  <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <div className="flex items-center bg-gray-50 px-6 py-4 rounded-lg shadow-sm">
+                    <svg className="animate-spin h-5 w-5 mr-3 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
+                    <span className="text-sm text-gray-600 font-medium">Loading batches...</span>
+                  </div>
                 </div>
-              ) : batchError ? (
-                <div className="text-center p-4 text-red-600">{batchError}</div>
               ) : batches.length === 0 ? (
                 <div className="bg-white rounded-lg shadow-sm p-12 text-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -516,27 +641,98 @@ const TeacherDashboard: React.FC = () => {
                   <p className="text-gray-500">You don't have any batches assigned to you at the moment. Please contact the admin for batch assignments.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {batches.map(batch => (
                     <div 
                       key={batch.id}
-                      className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-                      onClick={() => {
-                        setSelectedBatch(batch.id);
-                        setActiveTab('attendance');
-                      }}
+                      className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => handleBatchSelect(batch.id)}
                     >
-                      <div className="bg-blue-600 px-4 py-2 text-white text-lg font-semibold">
-                        {batch.name}
+                      <div className="p-4 border-b border-gray-200 bg-blue-50">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 mr-3 flex-shrink-0">
+                            {batch.name.substring(0, 1).toUpperCase()}
+                          </div>
+                          <div className="overflow-hidden">
+                            <h4 className="font-medium text-gray-900 truncate">{batch.name}</h4>
+                            <p className="text-sm text-gray-500 truncate">{batch.subject}</p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="p-6">
-                        <div className="text-gray-600 mb-2">Subject: {batch.subject}</div>
-                        <div className="text-gray-600 mb-2">Schedule: {batch.schedule}</div>
-                        <div className="text-gray-600 mb-4">Students: {batch.studentCount}</div>
-                        <div className="mt-4">
-                          <div className="text-sm font-medium text-gray-700 mb-1">Course Progress: {batch.progress}%</div>
+                      
+                      <div className="p-4">
+                        <div className="text-sm space-y-2">
+                          <div className="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-gray-700">{batch.schedule}</span>
+                          </div>
+                          
+                          <div className="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                            <span className="text-gray-700">{batch.studentCount} Students</span>
+                          </div>
+                          
+                          <div className="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
+                            <span className="text-gray-700">Progress: {batch.progress}%</span>
+                          </div>
+                          
+                          <div className="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-gray-700">Next: {batch.nextClass}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3">
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${batch.progress}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+                        <div className="flex justify-between items-center">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            batch.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {batch.status}
+                          </span>
+                          
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleBatchSelect(batch.id);
+                              }}
+                              className="inline-flex items-center p-1 border border-transparent rounded text-blue-600 hover:bg-blue-50 focus:outline-none"
+                              title="Take Attendance"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                              </svg>
+                            </button>
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                alert(`View students for ${batch.name} (Not implemented in demo)`);
+                              }}
+                              className="inline-flex items-center p-1 border border-transparent rounded text-green-600 hover:bg-green-50 focus:outline-none"
+                              title="View Students"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -544,12 +740,25 @@ const TeacherDashboard: React.FC = () => {
                   ))}
                 </div>
               )}
+              
+              {/* Instructions and explanation */}
+              <div className="bg-gray-50 p-4 rounded-md border border-gray-200 mt-6">
+                <p className="text-sm text-gray-600 mb-2">
+                  <strong>Important:</strong> As a teacher, you can access your assigned batches here.
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
+                  <li>Click on a batch to take attendance for that class</li>
+                  <li>Use the attendance system to mark students present or absent</li>
+                  <li>Submit attendance to notify parents of absent students</li>
+                  <li>View batch details including schedule and progress</li>
+                </ol>
+              </div>
             </div>
           )}
 
           {activeTab === 'attendance' && (
             <div>
-              {selectedBatch ? (
+              {selectedBatch && studentsByBatch[selectedBatch] ? (
                 <div>
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold">
@@ -561,6 +770,18 @@ const TeacherDashboard: React.FC = () => {
                   </div>
                   
                   <div className="bg-white shadow overflow-hidden rounded-lg mb-6">
+                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm font-medium text-gray-700">
+                          Total Students: {studentsByBatch[selectedBatch].length}
+                        </div>
+                        <div className="text-sm font-medium text-gray-700">
+                          Present: {studentsByBatch[selectedBatch].filter(s => s.present).length} / 
+                          Absent: {studentsByBatch[selectedBatch].filter(s => !s.present).length}
+                        </div>
+                      </div>
+                    </div>
+                    
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
@@ -570,6 +791,9 @@ const TeacherDashboard: React.FC = () => {
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Parent Contact
                           </th>
+                          <th scope="col" className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Performance
+                          </th>
                           <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Attendance
                           </th>
@@ -577,17 +801,34 @@ const TeacherDashboard: React.FC = () => {
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {studentsByBatch[selectedBatch].map((student) => (
-                          <tr key={student.id}>
+                          <tr key={student.id} className={!student.present ? 'bg-red-50' : ''}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {student.name}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {student.parentPhone}
                             </td>
+                            <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                ${student.performance === 'excellent' ? 'bg-green-100 text-green-800' : 
+                                  student.performance === 'good' ? 'bg-blue-100 text-blue-800' : 
+                                  student.performance === 'average' ? 'bg-yellow-100 text-yellow-800' : 
+                                  'bg-red-100 text-red-800'}`}
+                              >
+                                {student.performance}
+                              </span>
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
-                                onClick={() => toggleAttendance(selectedBatch, student.id)}
-                                className={`py-1 px-3 rounded-full text-white ${student.present ? 'bg-green-500' : 'bg-red-500'}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleAttendance(selectedBatch, student.id);
+                                }}
+                                className={`py-1 px-3 rounded-full text-white ${
+                                  student.present ? 
+                                    'bg-green-500 hover:bg-green-600' : 
+                                    'bg-red-500 hover:bg-red-600'
+                                } transition-colors`}
                               >
                                 {student.present ? 'Present' : 'Absent'}
                               </button>
@@ -598,12 +839,24 @@ const TeacherDashboard: React.FC = () => {
                     </table>
                   </div>
                   
-                  <div className="flex justify-end">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
+                    <div className="text-sm text-gray-600 bg-yellow-50 p-3 rounded border border-yellow-200 flex items-start">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      <span>
+                        Absent students' parents will receive WhatsApp notifications when attendance is submitted.
+                      </span>
+                    </div>
+                    
                     <button
                       onClick={() => submitAttendance(selectedBatch)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                      className="inline-flex justify-center items-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                     >
-                      Submit Attendance & Send Notifications
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Submit Attendance
                     </button>
                   </div>
                 </div>
