@@ -1,16 +1,8 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "index.js", "use": "@vercel/node" },
-    { "src": "client/package.json", "use": "@vercel/static-build" }
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/server/server.js" },
+    { "source": "/(.*)", "destination": "/client/build/index.html" }
   ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "index.js" },
-    { "src": "/(.*\\.(js|css|png|jpg|gif|svg|ico))", "dest": "client/build/$1" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "client/build/index.html" }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  "buildCommand": "npm run build",
+  "outputDirectory": "client/build"
 } 

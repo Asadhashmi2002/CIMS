@@ -58,15 +58,29 @@ app.get('/api', (req, res) => {
   });
 });
 
-// For requests to the root that don't match any of the above routes,
-// defer to the static file handling in Vercel config
-// (Allows the client SPA to be served)
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  const clientBuildPath = path.join(__dirname, '../client/build');
+  app.use(express.static(clientBuildPath));
+  
+  // Serve index.html for any request not handled by the API or static files
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(clientBuildPath, 'index.html'));
+    }
+  });
+}
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-  console.log(`API available at http://localhost:${PORT}/api`);
-  console.log('Available demo accounts:');
-  console.log('- Admin: admin@example.com / admin123');
-  console.log('- Teacher: teacher@example.com / teacher123');
-}); 
+// Start server if running directly (not imported)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`API available at http://localhost:${PORT}/api`);
+    console.log('Available demo accounts:');
+    console.log('- Admin: admin@example.com / admin123');
+    console.log('- Teacher: teacher@example.com / teacher123');
+  });
+}
+
+// Export app for serverless functions
+module.exports = app; 
