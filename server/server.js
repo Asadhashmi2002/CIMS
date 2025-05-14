@@ -2,17 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
+// Import routes
+const authRoutes = require('./routes/auth');
+const teacherRoutes = require('./routes/teachers');
+const studentRoutes = require('./routes/students');
+const batchRoutes = require('./routes/batches');
+const feeRoutes = require('./routes/fees');
+const attendanceRoutes = require('./routes/attendance');
+const statsRoutes = require('./routes/stats');
+
 // Create Express app
 const app = express();
-const PORT = 5000;
-
-// Sample data
-const users = [
-  { id: '1', name: 'Admin User', email: 'admin@example.com', password: 'admin123', role: 'admin' },
-  { id: '2', name: 'John Doe', email: 'john@example.com', password: 'john123', role: 'teacher' },
-  { id: '3', name: 'Jane Smith', email: 'jane@example.com', password: 'jane123', role: 'teacher' },
-  { id: '4', name: 'Teacher Demo', email: 'teacher@example.com', password: 'teacher123', role: 'teacher' }
-];
+const PORT = process.env.PORT || 5000;
 
 // Enable CORS for all origins in development
 app.use(cors({
@@ -34,57 +35,27 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Auth login endpoint
-app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  
-  console.log('Login attempt:', { email, password });
-  
-  const user = users.find(u => u.email === email && u.password === password);
-  
-  if (user) {
-    // Create a copy of the user object without the password
-    const { password, ...userData } = user;
-    
-    console.log('Login successful for:', email);
-    
-    // Return success with token (simulated)
-    res.json({
-      message: 'Login successful',
-      token: 'demo-jwt-token-' + Date.now(),
-      user: userData
-    });
-  } else {
-    console.log('Login failed for:', email);
-    res.status(401).json({ message: 'Invalid email or password' });
-  }
-});
+// Use route files
+app.use('/api/auth', authRoutes);
+app.use('/api/teachers', teacherRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/batches', batchRoutes);
+app.use('/api/fees', feeRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/stats', statsRoutes);
 
-// Teacher login endpoint
-app.post('/api/teachers/login', (req, res) => {
-  const { email, password } = req.body;
+// For Vercel deployment - handle SPA routing
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files
+  app.use(express.static(path.join(__dirname, '../client/build')));
   
-  console.log('Teacher login attempt:', { email, password });
-  
-  const teacher = users.find(u => u.email === email && u.password === password && u.role === 'teacher');
-  
-  if (teacher) {
-    // Create a copy of the user object without the password
-    const { password, ...teacherData } = teacher;
-    
-    console.log('Teacher login successful for:', email);
-    
-    // Return success with token (simulated)
-    res.json({
-      message: 'Login successful',
-      token: 'demo-jwt-token-' + Date.now(),
-      user: teacherData
-    });
-  } else {
-    console.log('Teacher login failed for:', email);
-    res.status(401).json({ message: 'Invalid email or password' });
-  }
-});
+  // Handle React routing, return all requests to React app
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+    }
+  });
+}
 
 // Start server
 app.listen(PORT, () => {

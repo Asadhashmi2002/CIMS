@@ -28,7 +28,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "vercel-build": "react-scripts build"
   },
   "eslintConfig": {
     "extends": [
@@ -56,5 +57,6 @@
     "postcss-normalize": "^13.0.1",
     "postcss-preset-env": "^10.1.6",
     "tailwindcss": "^3.3.0"
-  }
+  },
+  "proxy": "http://localhost:5000"
 }
