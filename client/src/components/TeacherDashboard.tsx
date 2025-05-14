@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ReactComponent as Logo } from '../assets/images/logo.svg';
+import { batchAPI } from '../services/api';
 
 interface User {
+  id: string;
   role: string;
   email: string;
   name?: string;
@@ -12,8 +14,12 @@ interface Batch {
   id: string;
   name: string;
   subject: string;
-  time: string;
-  students: number;
+  schedule: string;
+  teacherIds: string[];
+  teacherNames: string[];
+  studentCount: number;
+  status: 'active' | 'inactive';
+  created: string;
   progress?: number;
   nextClass?: string;
 }
@@ -52,40 +58,11 @@ const TeacherDashboard: React.FC = () => {
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   
-  // Mock data
-  const batches: Batch[] = [
-    { id: 'b1', name: 'Morning Batch', subject: 'Physics', time: '8:00 AM - 10:00 AM', students: 32, progress: 68, nextClass: 'Tomorrow, 8:00 AM' },
-    { id: 'b2', name: 'Afternoon Batch', subject: 'Chemistry', time: '1:00 PM - 3:00 PM', students: 28, progress: 72, nextClass: 'Today, 1:00 PM' },
-    { id: 'b3', name: 'Evening Batch', subject: 'Mathematics', time: '5:00 PM - 7:00 PM', students: 30, progress: 85, nextClass: 'Today, 5:00 PM' },
-    { id: 'b4', name: 'Weekend Batch', subject: 'Physics Advanced', time: 'Sat-Sun 9:00 AM - 11:00 AM', students: 24, progress: 55, nextClass: 'Saturday, 9:00 AM' }
-  ];
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [batchesLoading, setBatchesLoading] = useState(false);
+  const [batchError, setBatchError] = useState('');
   
-  const [studentsByBatch, setStudentsByBatch] = useState<{[key: string]: Student[]}>({
-    b1: [
-      { id: 's1', name: 'Aisha Smith', parentPhone: '+1234567890', present: false, email: 'aisha@example.com', performance: 'excellent', attendance: 92 },
-      { id: 's2', name: 'Noah Johnson', parentPhone: '+1234567891', present: false, email: 'noah@example.com', performance: 'good', attendance: 85 },
-      { id: 's3', name: 'Emma Williams', parentPhone: '+1234567892', present: false, email: 'emma@example.com', performance: 'average', attendance: 78 },
-      { id: 's4', name: 'James Brown', parentPhone: '+1234567893', present: false, email: 'james@example.com', performance: 'good', attendance: 88 },
-      { id: 's5', name: 'Sophia Miller', parentPhone: '+1234567894', present: false, email: 'sophia@example.com', performance: 'poor', attendance: 65 },
-    ],
-    b2: [
-      { id: 's6', name: 'Liam Brown', parentPhone: '+1234567895', present: false, email: 'liam@example.com', performance: 'excellent', attendance: 96 },
-      { id: 's7', name: 'Olivia Davis', parentPhone: '+1234567896', present: false, email: 'olivia@example.com', performance: 'average', attendance: 79 },
-      { id: 's8', name: 'Lucas Wilson', parentPhone: '+1234567897', present: false, email: 'lucas@example.com', performance: 'poor', attendance: 60 },
-      { id: 's9', name: 'Amelia Taylor', parentPhone: '+1234567898', present: false, email: 'amelia@example.com', performance: 'good', attendance: 88 },
-    ],
-    b3: [
-      { id: 's10', name: 'Sophia Martinez', parentPhone: '+1234567899', present: false, email: 'sophia.m@example.com', performance: 'excellent', attendance: 95 },
-      { id: 's11', name: 'Ethan Anderson', parentPhone: '+1234567800', present: false, email: 'ethan@example.com', performance: 'good', attendance: 84 },
-      { id: 's12', name: 'Isabella Taylor', parentPhone: '+1234567801', present: false, email: 'isabella@example.com', performance: 'average', attendance: 76 },
-      { id: 's13', name: 'Mason Jackson', parentPhone: '+1234567802', present: false, email: 'mason@example.com', performance: 'good', attendance: 89 },
-    ],
-    b4: [
-      { id: 's14', name: 'Charlotte White', parentPhone: '+1234567803', present: false, email: 'charlotte@example.com', performance: 'excellent', attendance: 98 },
-      { id: 's15', name: 'Jacob Harris', parentPhone: '+1234567804', present: false, email: 'jacob@example.com', performance: 'average', attendance: 75 },
-      { id: 's16', name: 'Mia Clark', parentPhone: '+1234567805', present: false, email: 'mia@example.com', performance: 'good', attendance: 87 },
-    ]
-  });
+  const [studentsByBatch, setStudentsByBatch] = useState<{[key: string]: Student[]}>({});
   
   const assignments: Assignment[] = [
     { id: 'a1', title: 'Kinematics Problem Set', subject: 'Physics', dueDate: '2023-05-22', status: 'assigned', submissions: 12, batch: 'b1' },
@@ -112,6 +89,9 @@ const TeacherDashboard: React.FC = () => {
           parsedUser.name = "Dr. Rajesh Sharma";
         }
         setUser(parsedUser);
+        
+        // Fetch batches assigned to this teacher
+        loadTeacherBatches(parsedUser.id);
       } else {
         // Redirect to login if not a teacher
         window.location.href = '/login';
@@ -121,6 +101,39 @@ const TeacherDashboard: React.FC = () => {
       window.location.href = '/login';
     }
   }, []);
+
+  const loadTeacherBatches = async (teacherId: string) => {
+    if (!teacherId) return;
+    
+    setBatchesLoading(true);
+    setBatchError('');
+    
+    try {
+      const response = await batchAPI.getTeacherBatches(teacherId);
+      
+      // Add some UI-specific properties to each batch
+      const processedBatches = response.data.map((batch: Batch) => {
+        // Generate a random progress value and next class info for UI purposes
+        const progress = Math.floor(Math.random() * 40) + 60; // Random between 60-100
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const today = new Date().getDay();
+        const nextDay = (today + 1) % 7; // Next day
+        
+        return {
+          ...batch,
+          progress,
+          nextClass: `${days[nextDay]}, ${batch.schedule.split(' ')[0]}`
+        };
+      });
+      
+      setBatches(processedBatches);
+      setBatchesLoading(false);
+    } catch (error) {
+      console.error('Failed to load teacher batches:', error);
+      setBatchError('Failed to load your assigned batches. Please try again later.');
+      setBatchesLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -330,7 +343,6 @@ const TeacherDashboard: React.FC = () => {
 
         {/* Dashboard Content */}
         <main className="flex-1 overflow-y-auto p-4 bg-gray-50">
-          {/* Content will go here depending on active tab */}
           {activeTab === 'dashboard' && (
             <>
               {/* Welcome Banner */}
@@ -411,25 +423,44 @@ const TeacherDashboard: React.FC = () => {
                       View All
                     </button>
                   </div>
-                  <div className="space-y-4">
-                    {batches.slice(0, 3).map(batch => (
-                      <div key={batch.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                        <div>
-                          <h4 className="text-md font-semibold text-gray-800">{batch.name} - {batch.subject}</h4>
-                          <p className="text-sm text-gray-600">{batch.time} • {batch.students} students</p>
-                        </div>
-                        <div className="mt-2 sm:mt-0">
-                          <div className="flex items-center space-x-2">
-                            <div className="text-sm font-medium text-gray-700">Progress: {batch.progress}%</div>
-                            <div className="w-32 bg-gray-200 rounded-full h-2.5">
-                              <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${batch.progress}%` }}></div>
-                            </div>
+                  
+                  {batchesLoading ? (
+                    <div className="flex justify-center items-center h-40">
+                      <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </div>
+                  ) : batchError ? (
+                    <div className="text-center p-4 text-red-600">{batchError}</div>
+                  ) : batches.length === 0 ? (
+                    <div className="text-center p-8 bg-gray-50 rounded-lg">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                      <p className="text-gray-600">No batches assigned to you yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {batches.slice(0, 3).map(batch => (
+                        <div key={batch.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                          <div>
+                            <h4 className="text-md font-semibold text-gray-800">{batch.name} - {batch.subject}</h4>
+                            <p className="text-sm text-gray-600">{batch.schedule} • {batch.studentCount} students</p>
                           </div>
-                          <p className="text-xs text-gray-500 mt-1">Next Class: {batch.nextClass}</p>
+                          <div className="mt-2 sm:mt-0">
+                            <div className="flex items-center space-x-2">
+                              <div className="text-sm font-medium text-gray-700">Progress: {batch.progress}%</div>
+                              <div className="w-32 bg-gray-200 rounded-full h-2.5">
+                                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${batch.progress}%` }}></div>
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Next Class: {batch.nextClass}</p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
@@ -466,33 +497,53 @@ const TeacherDashboard: React.FC = () => {
           {activeTab === 'batches' && (
             <div>
               <h2 className="text-xl font-semibold mb-6">My Batches</h2>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {batches.map(batch => (
-                  <div 
-                    key={batch.id}
-                    className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-                    onClick={() => {
-                      setSelectedBatch(batch.id);
-                      setActiveTab('attendance');
-                    }}
-                  >
-                    <div className="bg-blue-600 px-4 py-2 text-white text-lg font-semibold">
-                      {batch.name}
-                    </div>
-                    <div className="p-6">
-                      <div className="text-gray-600 mb-2">Subject: {batch.subject}</div>
-                      <div className="text-gray-600 mb-2">Time: {batch.time}</div>
-                      <div className="text-gray-600 mb-4">Students: {batch.students}</div>
-                      <div className="mt-4">
-                        <div className="text-sm font-medium text-gray-700 mb-1">Course Progress: {batch.progress}%</div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${batch.progress}%` }}></div>
+              
+              {batchesLoading ? (
+                <div className="flex justify-center items-center h-40">
+                  <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              ) : batchError ? (
+                <div className="text-center p-4 text-red-600">{batchError}</div>
+              ) : batches.length === 0 ? (
+                <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Batches Assigned</h3>
+                  <p className="text-gray-500">You don't have any batches assigned to you at the moment. Please contact the admin for batch assignments.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {batches.map(batch => (
+                    <div 
+                      key={batch.id}
+                      className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+                      onClick={() => {
+                        setSelectedBatch(batch.id);
+                        setActiveTab('attendance');
+                      }}
+                    >
+                      <div className="bg-blue-600 px-4 py-2 text-white text-lg font-semibold">
+                        {batch.name}
+                      </div>
+                      <div className="p-6">
+                        <div className="text-gray-600 mb-2">Subject: {batch.subject}</div>
+                        <div className="text-gray-600 mb-2">Schedule: {batch.schedule}</div>
+                        <div className="text-gray-600 mb-4">Students: {batch.studentCount}</div>
+                        <div className="mt-4">
+                          <div className="text-sm font-medium text-gray-700 mb-1">Course Progress: {batch.progress}%</div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${batch.progress}%` }}></div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -505,7 +556,7 @@ const TeacherDashboard: React.FC = () => {
                       Attendance: {batches.find(b => b.id === selectedBatch)?.name}
                     </h2>
                     <div className="text-sm text-gray-600">
-                      {new Date().toLocaleDateString()} | {batches.find(b => b.id === selectedBatch)?.time}
+                      {new Date().toLocaleDateString()} | {batches.find(b => b.id === selectedBatch)?.schedule}
                     </div>
                   </div>
                   
