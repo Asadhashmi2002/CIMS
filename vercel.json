@@ -7,6 +7,7 @@
   "routes": [
     { "src": "/api/(.*)", "dest": "index.js" },
     { "src": "/(.*\\.(js|css|png|jpg|gif|svg|ico))", "dest": "client/build/$1" },
+    { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "client/build/index.html" }
   ],
   "env": {

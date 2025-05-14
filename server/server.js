@@ -24,17 +24,6 @@ app.use(cors({
 // Parse JSON requests
 app.use(express.json());
 
-// Simple health check endpoint
-app.get('/api', (req, res) => {
-  res.json({
-    message: 'API is working',
-    defaultCredentials: {
-      admin: { email: 'admin@example.com', password: 'admin123' },
-      teacher: { email: 'teacher@example.com', password: 'teacher123' }
-    }
-  });
-});
-
 // Use route files
 app.use('/api/auth', authRoutes);
 app.use('/api/teachers', teacherRoutes);
@@ -49,11 +38,10 @@ app.all('/api/*', (req, res) => {
   res.status(404).json({ message: `API endpoint not found: ${req.path}` });
 });
 
-// For Vercel, handle all other requests by returning a simple message
-// This helps with debugging deployment issues
-app.get('*', (req, res) => {
+// Only respond with API info if explicitly requesting /api
+app.get('/api', (req, res) => {
   res.json({
-    message: 'Server is running. Please access via the client or proper API endpoints.',
+    message: 'API is working',
     endpoints: [
       '/api/auth',
       '/api/teachers',
@@ -62,9 +50,17 @@ app.get('*', (req, res) => {
       '/api/fees',
       '/api/attendance',
       '/api/stats'
-    ]
+    ],
+    defaultCredentials: {
+      admin: { email: 'admin@example.com', password: 'admin123' },
+      teacher: { email: 'teacher@example.com', password: 'teacher123' }
+    }
   });
 });
+
+// For requests to the root that don't match any of the above routes,
+// defer to the static file handling in Vercel config
+// (Allows the client SPA to be served)
 
 // Start server
 app.listen(PORT, () => {
