@@ -11,12 +11,12 @@
     "build:client": "cd client && CI=false npm run build",
     "build:server": "cd server && npm run build",
     "build": "npm run build:client && npm run build:server",
+    "vercel-build": "cd client && CI=false npm run build",
     "start:client": "cd client && npm start",
     "start:server": "cd server && npm start",
     "dev:client": "cd client && npm start",
     "dev:server": "cd server && npm run dev",
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "vercel-build": "npm run setup-env && npm run build"
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\""
   },
   "devDependencies": {
     "concurrently": "^8.0.1"
